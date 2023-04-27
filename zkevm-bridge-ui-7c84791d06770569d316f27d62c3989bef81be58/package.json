@@ -1,0 +1,78 @@
+{
+  "name": "zkevm-bridge-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "generate-contract-types": "./scripts/generate-contract-types.sh",
+    "prepare": "husky install",
+    "postinstall": "npm run generate-contract-types",
+    "format": "prettier --write .",
+    "lint": "eslint './src/**/*.{ts,tsx}'",
+    "lint:fix": "npm run lint -- --fix",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@walletconnect/ethereum-provider": "^1.7.8",
+    "axios": "^0.27.2",
+    "ethers": "^5.7.2",
+    "events": "^3.3.0",
+    "normalize.css": "^8.0.1",
+    "platform": "^1.3.6",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-jss": "^10.9.1",
+    "react-router-dom": "^6.3.0",
+    "stacktrace-js": "^2.0.2",
+    "zod": "^3.20.2"
+  },
+  "devDependencies": {
+    "@iden3/eslint-config-react-ts": "^1.4.0",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@types/node": "^18.6.2",
+    "@types/platform": "^1.3.4",
+    "@types/react": "^18.0.15",
+    "@types/react-dom": "^18.0.6",
+    "@vitejs/plugin-react": "^2.0.0",
+    "eslint": "^8.20.0",
+    "husky": "^8.0.1",
+    "prettier": "^2.7.1",
+    "typescript": "^4.6.4",
+    "vite": "^3.0.0",
+    "vite-plugin-checker": "^0.4.9",
+    "vite-plugin-svgr": "^2.2.1"
+  },
+  "eslintConfig": {
+    "extends": "@iden3/eslint-config-react-ts",
+    "ignorePatterns": [
+      "dist"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,ts,json}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{html,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=16",
+    "npm": ">=8"
+  }
+}
