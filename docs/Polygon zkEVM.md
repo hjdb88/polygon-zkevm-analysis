@@ -28,7 +28,7 @@ Polygon zkEVM是以太坊的2层扩展解决方案，利用零知识证明的扩
 
 # 架构
 
-Polygon zkEVM处理由以太坊第2层交易执行（用户发送到网络的交易）引起的状态转换。然后zkEVM创建有效性证明，利用零知识特性证明这些链下状态变化计算的准确性。
+Polygon zkEVM处理由以太坊L2交易执行（用户发送到网络的交易）引起的状态转换。然后zkEVM创建有效性证明，利用零知识特性证明这些链下状态变化计算的准确性。
 
 Polygon zkEVM的骨架架构如下图所示：
 
@@ -52,7 +52,7 @@ Polygon zkEVM的骨架架构如下图所示：
 
 早期的捐赠证明（PoD）机制是基于去中心化的拍卖模型来获得在特定时间范围内生产批次的权利。在这种机制中，建立了经济激励机制，因此验证者需要非常高效才能具有竞争力。
 
-最新版本的zkEVM共识合约（部署在第1层）以[效率证明(PoE)](https://ethresear.ch/t/proof-of-efficiency-a-new-consensus-mechanism-for-zk-rollups/11988)为模型。它利用了v1.0中现有PoD的经验，并增加了对多个协调器的无许可参与以在L2中生产批次的支持。
+最新版本的zkEVM共识合约（部署在L1）以[效率证明(PoE)](https://ethresear.ch/t/proof-of-efficiency-a-new-consensus-mechanism-for-zk-rollups/11988)为模型。它利用了v1.0中现有PoD的经验，并增加了对多个协调器的无许可参与以在L2中生产批次的支持。
 
 #### 实施模式
 
@@ -81,7 +81,7 @@ Polygon zkEVM的骨架架构如下图所示：
 
 zkEVM中的底层协议通过使用有效性证明来确保状态转换是正确的。为了确保遵循一组允许状态转换的预定规则，使用了共识合约（PolygonZkEVM.sol，部署在L1上）。
 
-智能合约验证有效性证明，以确保每个转换都正确完成。这是通过使用zk-SNARK电路来实现的。这种类型的系统需要两个过程：事务批处理和事务验证。
+智能合约验证有效性证明，以确保每个转换都正确完成。这是通过使用zk-SNARK电路来实现的。这种类型的系统需要两个过程：事务批次和事务验证。
 
 为了执行这些程序，zkEVM使用两种类型的参与者：**定序器**和**聚合器**。在这个两层模型下：
 * 定序器：向网络提出交易批次，即他们批量汇总交易请求并将它们添加到共识合约中。
@@ -143,7 +143,7 @@ zkEVM采用先进的零知识技术来创建有效性证明。它使用零知识
 
 ![zkProver](./assets/01003_zkProv.png)
 
-简而言之，zkEVM以多项式形式表示状态变化。因此，每个提议的批处理必须满足的约束是多项式约束或多项式恒等式。换句话说，所有有效的批次都必须满足特定的多项式约束。
+简而言之，zkEVM以多项式形式表示状态变化。因此，每个提议的批次必须满足的约束是多项式约束或多项式恒等式。换句话说，所有有效的批次都必须满足特定的多项式约束。
 
 ### zkEVM Bridge
 
@@ -236,7 +236,7 @@ zkEVM三个主要的组件是
 #### 共识合约
 
 可信排序器和可信聚合器在与L1交互时使用的共识合约是PolygonZkEVM.sol合约。
-可信定序器可以将批处理序列提交给L1并将它们存储在PolygonZkEVM.sol合约中，从而创建序列的历史存储库。
+可信定序器可以将批次序列提交给L1并将它们存储在PolygonZkEVM.sol合约中，从而创建序列的历史存储库。
 合约PolygonZkEVM.sol还使聚合器能够公开验证从一个L2状态根到下一个的转换。共识合约通过验​​证聚合器的ZK证明来实现这一点，证明交易批次的正确执行。
 
 ### zkEVM节点执行模式
@@ -249,7 +249,7 @@ zkEVM节点是一个软件包，包含运行zkEVM网络所需的所有组件。�
 
 #### 聚合器模式
 
-在聚合器模式下，节点具有执行交易批处理、计算结果L2状态和生成计算完整性的零知识证明所需的所有组件。此外，具有获取由可信定序器在L1中提交的交易批次所需的所有组件，并调用函数来公开验证L1上的L2状态转换。
+在聚合器模式下，节点具有执行交易批次、计算结果L2状态和生成计算完整性的零知识证明所需的所有组件。此外，具有获取由可信定序器在L1中提交的交易批次所需的所有组件，并调用函数来公开验证L1上的L2状态转换。
 
 #### RPC
 
@@ -259,8 +259,8 @@ zkEVM节点是一个软件包，包含运行zkEVM网络所需的所有组件。�
 
 ### 无需信任的L2状态
 
-可信定序器生成批次，通过广播通道与L2网络节点共享通过广播通道与L2网络节点共享，实现L2交易的快速最终并避免等待下一个L1块的需要。每个节点将运行批处理以在本地计算生成L2状态。
-一旦可信定序器提交了直接从L1获取的批处理序列，L2网络节点将再次执行它们，它们将不再需要信任它。
+可信定序器生成批次，通过广播通道与L2网络节点共享通过广播通道与L2网络节点共享，实现L2交易的快速最终并避免等待下一个L1块的需要。每个节点将运行批次以在本地计算生成L2状态。
+一旦可信定序器提交了直接从L1获取的批次序列，L2网络节点将再次执行它们，它们将不再需要信任它。
 批次的链下执行最终将通过零知识证明在链上进行验证，并将提交生成的L2状态根。随着zkEVM协议的处理，新的L2状态根将由L2网络节点直接从L1同步。
 
 交易执行的数据可用性和验证仅依赖于L1安全假设，并且在协议的最后阶段，节点将仅依赖于L1中存在的数据来与每个L2状态转换保持同步。
@@ -281,7 +281,7 @@ L2状态分为三个阶段，每个阶段对应L2节点更新其状态的三种�
 在第二种情况下，基于L2节点从L1网络检索的信息更新。也就是说，在对批次进行定序并在L1上提供数据之后。L2状态此时被称为虚拟状态。
 在第三种情况下，用于更新L2状态的信息包括经过验证的计算完整性的零知识证明。也就是说，在L1中成功验证零知识证明后，L2节点将其本地L2状态根与可信聚合器在L1中提交的状态根同步。因此，L2状态此时被称为联合状态。
 
-下图从批处理的角度描述了L2状态阶段的时间线，以及触发从一个阶段进展到下一阶段的动作。
+下图从批次的角度描述了L2状态阶段的时间线，以及触发从一个阶段进展到下一阶段的动作。
 ![state timeline](assets/02002_state-timeline.png)
 
 ## 交易生命周期
@@ -323,13 +323,13 @@ struct BatchData {
 
 #### globalExitRoot
 
-这是Bridge的Global Exit Merkle Tree的根，它将在批处理开始时同步到L2状态。Bridge在L1和L2之间传输资产，认领交易解锁目标网络中的资产。
+这是Bridge的Global Exit Merkle Tree的根，它将在批次开始时同步到L2状态。Bridge在L1和L2之间传输资产，认领交易解锁目标网络中的资产。
 
 #### timestamp
 
 就像以太坊区块有时间戳一样，每个批次都有一个时间戳。每个时间戳必须满足两个约束，以确保批次按时间排序并与L1块同步：
   1. 给定批次的时间戳必须大于或等于最后一个排序批次的时间戳
-  2. 可信定序器可以为批处理设置的最大批处理时间戳是执行排序L1交易的块的时间戳
+  2. 可信定序器可以为批次设置的最大批处理时间戳是执行排序L1交易的块的时间戳
 
 #### minForcedTimestamp
 
@@ -353,12 +353,12 @@ function sequenceBatches (
 ) public ifNotEmergencyState onlyTrustedSequencer
 ```
 
-下图显示了批处理序列的逻辑结构。
+下图显示了批次序列的逻辑结构。
 ![sequencing batches](assets/02003_sequencing-batches.png)
 
 #### 最大和最小批量大小
 
-合约的公共常量MAX TRANSACTIONS BYTE LENGTH决定了一个批处理中可以包含的最大交易数（300000）。类似地，序列中的批次数量受合约的公共常量MAX VERIFY BATCHES（1000）限制。批次数组必须至少包含一个批次，并且不超过常量MAX VERIFY BATCHES的值。只有可信定序器的以太坊账户可以访问映射sequencedBatches。合约也必须不处于紧急状态。如果不满足上述条件，函数调用将被还原。
+合约的公共常量MAX TRANSACTIONS BYTE LENGTH决定了一个批次中可以包含的最大交易数（300000）。类似地，序列中的批次数量受合约的公共常量MAX VERIFY BATCHES（1000）限制。批次数组必须至少包含一个批次，并且不超过常量MAX VERIFY BATCHES的值。只有可信定序器的以太坊账户可以访问映射sequencedBatches。合约也必须不处于紧急状态。如果不满足上述条件，函数调用将被还原。
 
 #### 批次有效性和L2状态完整性
 
@@ -371,7 +371,7 @@ function sequenceBatches (
 
 存储变量calledlastBatchSequenced用作批次计数器，因此每次对批次进行排序时它都会递增。它为每个批次提供一个特定的索引号，该索引号将用作批次链中的位置值。
 
-区块链中用于将一个块链接到下一个块的相同哈希机制被用于批处理，以确保批处理链的密码完整性。也就是说，在用于计算下一批摘要的数据中包括前一批摘要。
+区块链中用于将一个块链接到下一个块的相同哈希机制被用于批次，以确保批次链的密码完整性。也就是说，在用于计算下一批摘要的数据中包括前一批摘要。
 
 因此，给定批次的摘要是所有先前排序的批次的累积哈希，因此称为批次的累积哈希，旧的用 oldAccInputHash 表示，新的用 newAccInputHash 表示。
 
@@ -397,7 +397,7 @@ keccak256 (
 ![batch chain acc hash](assets/02004-batch-chain-acc-hash.png)
 如上图所示，每个累积的输入哈希确保当前批次数据的完整性（如transactions和timestamp，globalExitRoot以及它们的排序顺序）。
 
-重要的是要注意，批处理链中的任何更改都会导致所有未来累积的输入哈希值不正确，表明由此产生的L2状态缺乏完整性。
+重要的是要注意，批次链中的任何更改都会导致所有未来累积的输入哈希值不正确，表明由此产生的L2状态缺乏完整性。
 
 只有在验证了序列中所有批次的有效性并计算了每个批次的累积哈希后，才使用以下SequencedBatchData结构将批次序列添加到sequencedBatches映射中。
 ```solidity
@@ -418,14 +418,14 @@ struct SequencedBatchData {
 
 由于 L1 中的存储操作在gas消耗方面非常昂贵，因此尽可能少地使用它是至关重要的。为此，存储槽（或映射条目）仅用于存储序列承诺。
 
-每个映射条目提交两个批处理索引。
+每个映射条目提交两个批次索引。
   * 前一个序列的最后一批作为SequencedBatchData结构的值
   * 当前序列的最后一批作为映射键，
 以及当前序列中最后一批的累积哈希值和时间戳。
 
 重要的是要注意，仅保存序列中最后一批的累积哈希；所有其他的都是动态计算的，以便获得最后一个。
 
-如前所述，哈希摘要将是整个批处理链的承诺。批次索引还提供有用的信息，例如序列中的批次数量及其在批次链中的位置。时间戳将序列锚定到特定时间点。
+如前所述，哈希摘要将是整个批次链的承诺。批次索引还提供有用的信息，例如序列中的批次数量及其在批次链中的位置。时间戳将序列锚定到特定时间点。
 
 L2交易的数据可用性是有保证的，因为每一个批次的数据都可以从排序交易的calldata中恢复出来，这不是合约存储的一部分，而是L1 State的一部分。
 
@@ -450,7 +450,7 @@ SNARK（Succinct Non-interactive Arguments of Knowledge）是底层的零知识�
 
 ![off chain on chain transaction](assets/02005-off-chain-on-chain-trans.png)
 
-如上图所示，批处理的链下执行将假定L2状态转换，并因此更改为新的L2状态根。
+如上图所示，批次的链下执行将假定L2状态转换，并因此更改为新的L2状态根。
 聚合器生成执行的计算完整性（CI）证明，其链上验证确保生成的L2状态根的有效性。
 
 #### Aggregating a Sequence of Batches
@@ -489,7 +489,7 @@ function trustedVerifyBatches (
 * 计算得到L2状态根
 * 为执行生成计算完整性的零知识证明
 
-证明/验证系统的设计方式使得成功的证明验证等同于密码证明在特定L2状态上执行给定的批处理序列会导致L2状态由参数**newStateRoot**表示。
+证明/验证系统的设计方式使得成功的证明验证等同于密码证明在特定L2状态上执行给定的批次序列会导致L2状态由参数**newStateRoot**表示。
 
 以下代码片段是PolygonZkEVM.sol合约的一部分，它展示了零知识证明验证：
 ```solidity
@@ -568,7 +568,7 @@ L2中使用的原生货币是Bridged Ether，它起源于L1。这是用于支付
 
 为了最大化其收入，定序器优先考虑gas价格较高的交易。此外，有一个阈值，低于该阈值，定序器执行交易将无利可图，因为从L2用户那里赚取的费用少于为排序费用支付的费用（加上L1排序交易费用）。用户必须确保他们的交易费用高于此阈值，以便激励定序器处理他们的交易。
 
-定序器对批处理序列进行排序所获得的Ether净值由以下表达式表示：
+定序器对批次序列进行排序所获得的Ether净值由以下表达式表示：
 “Sequencer net Ether income”=totalL2TxGasFee−(L1SeqTxGasFees+(batchFee∗nBatches)/(MATIC/ETH))
 ​其中，
 **totalL2TxGasFees**是从批序列中包含的所有L2交易中收集的费用总额，
@@ -628,16 +628,420 @@ $“new batch fee”=“old batch fee” \times \frac{multiplierBatchFee^{diffBa
 
 $“new batch fee”=“old batch fee” \times \frac{10^{3 \times diffBatches}}{multiplierBatchFee^{diffBatches}}$
 
-The graph below shows the percentage variation of the **batchFee** variable depending on the **diffBatches** value for different values of **multiplierBatchFee** when batches below the time target dominate the sequence. It should be noted that the goal is to reduce the aggregation reward.
+下图显示了当低于时间目标的批次在序列中占主导地位时，**batchFee**变量的百分比变化取决于**multiplierBatchFee**的不同值的**diffBatches**值。需要注意的是，目标是减少聚合奖励。
 
+![batches below time target](assets/02008-batches-below-time-target.png)
 
+总而言之，管理员可以通过调整**veryBatchTimeTarget**和**multiplierBatchFee**来调整变量**batchFee**。下面列出了合约初始化期间设置的值：
 
-
+* **batchFee** = 1018 (1 MATIC)
+* **veryBatchTimeTarget** = 30 minutes
+* **multiplierBatchFee** = 1002
 
 ## 协议可升级性
+
+为了允许未来对zkEVM协议实现进行更新（在添加新功能、修复错误或优化升级的情况下），使用透明可升级代理（TUP）模式部署以下合约：
+* PolygonZkEVM.sol（共识合约）
+* PolygonZkEVMGlobalExitRoot.sol
+* PolygonZkEVMBridge.sol
+
+为了继承安全性并避免延长和使审计过程变得更加复杂，选择使用OpenZeppelin的openzeppelin-upgrades库来实现此功能。
+如下图所示，Open Zeppelin 的 TUP 模式使用委托调用和回退函数分离了存储变量的协议实现，允许在不更改存储状态或合约公共地址的情况下更新实现代码。
+
+![tup pattern](assets/03001-tup-pattern.png)
+
+按照OpenZeppelin的建议，部署了合约实例ProxyAdmin.sol ，它也包含在openzeppelin-upgrades库中，并将其地址设置为代理合约的管理员。Hardhat和Truffle插件使这些操作安全而简单。每个ProxyAdmin.sol实例充当每个代理的实际管理界面，管理帐户是每个ProxyAdmin.sol实例的所有者。在zkEVM协议部署期间，ProxyAdmin.sol的所有权将转移到Admin角色。
+
 ## 管理员角色和治理
+
+Admin是控制Consensus合约的以太坊账户，但计划在未来被移除。它是合约中唯一可以调用以下函数的账户：
+* setTrustedSequencer
+* setForceBatchAllowed
+* setTrustedSequencerURL
+* setTrustedAggregator
+* setTrustedAggregatorTimeout
+* setPendingStateTimeout
+* setMultiplierBatchFee
+* setVeryBatchTimeTarget
+* setAdmin
+* deactivateEmergencyState
+
+所有可以升级zkEVM协议合约实现的ProxyAdmin.sol实例都属于Admin账户。此外，所有代理都由Admin帐户拥有，使其成为唯一有权修改用于实施zkEVM协议的合约的帐户。
+
+### 时间锁控制器
+
+时间锁控制器（Timelock Controller）是一个智能合约，可以设置延迟，让用户有时间在应用具有潜在风险的维护程序之前离开。
+
+zkEVM 协议中添加了时间锁控制器，以提高用户的安全性和信心。管理员可以使用时间锁控制器在L1中安排和提交维护操作交易，并且可以在经过指定的**minDelay**时间后激活时间锁以执行交易。
+Polygon zkEVM团队决定使用OpenZeppelin的[TimelockController.sol](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/governance/TimelockController.sol)合约来继承安全性，避免冗长复杂的审计过程。更改了合约中的**getMinDelay**方法，这个修改后的实现被命名为PolygonZkEVMTimelock.sol合约。
+
+如果zkEVM合约系统处于紧急模式，新的**getMinDelay**会将时间**minDelay**设置为0。zKEVM协议的Admin角色在部署期间设置为PolygonZkEVMTimelock.sol合约地址的实例。
+
+### zkEVM合约的治理
+
+管理员角色需要承担重大责任，不能单独分配给一个帐户。出于这个原因，PolygonZkEVMTimelock.sol合约实例的Admin Ethereum帐户被分配给一个多重签名合约，该合约充当zkEVM协议的治理工具，因此在多个受信任实体之间分散了管理权。
+
+下图显示了Polygon zkEVM L1合约的治理树。（由于协议合约之间的治理链，代表 Admin 角色的任何交易只能通过以下步骤完成。）
+
+![governance tree](assets/03002-governance-tree.png)
+
+协议维护操作只能通过以下步骤执行：
+1. 提出维护操作交易并将其存储到治理多重签名合约中。Polygon团队就是否应用这些操作达成共识。投票继承了L1的安全性。
+2. 一旦做出决定，如果结果有利于执行维护操作，则可以使用合约PolygonZkEVMTimelock.sol实例触发治理多重签名以安排在时间延迟过去后执行的交易。
+3. 一旦时间延迟过去，合约PolygonZkEVMTimelock.sol实例可以被触发以执行预定的交易并完成维护操作。
+
 ## 抗故障性
+
+### 抵制可信定序器的审查或故障
+
+用户必须依赖可信定序器才能在L2中执行他们的交易。但是，如果用户无法通过可信定序器执行它们，则可以将其交易包含在强制批次中。强制批次是L2交易的集合，用户可以将这些交易提交给L1以公开声明他们执行这些交易的意图。
+
+![forced batch seq flow](assets/04001-forced-batch-seq-flow.png)
+
+合约**PolygonZkEVM.sol**有一个映射**forcedBatches**，如上图所示，用户可以在该映射中提交要强制执行的交易批次。该forcedBatches映射充当一个不可变的公告板，强制批次在被包含在一个序列中之前被加上时间戳并发布。
+```solidity
+// ForceBatchNum --> hashedForcedBatchData
+mapping(uint64 => bytes32) public forcedBatches;
+```
+注意：可信定序器将在未来的序列中包含这些强制批次，以保持其作为可信实体的状态。否则，用户将能够证明他们正在被审查，可信定序器的信任状态将被撤销。
+
+尽管可信定序器被激励对映射**forcedBatches**中发布的强制批次进行排序，但这并不能保证这些批次中交易执行的最终性。
+为了确保在可信定序器发生故障的情况下的最终性，L1合约**PolygonZkEVM.sol**有一个名为**sequenceForceBatches**的替代批量排序函数。此函数允许任何人对已在映射**multiplierBatchFee**中发布了一段时间的强制批次进行排序，该时间段由公共常量**FORCE_BATCH_TIMEOUT**指定，但尚未排序。超时设置为5天。
+
+任何用户都可以通过直接调用函数**forceBatch**来发布要强制执行的批次：
+```solidity
+function forceBatch(
+    bytes memory transactions,
+    uint256 maticAmount
+) public ifNotEmergencyState isForceBatchAllowed
+```
+其中，
+* **transactions**是包含连接的批量交易的字节数组（与正常的批量交易格式相同）
+* **maticAmount**是用户愿意为强制批量发布支付的最大MATIC代币数额。发布强制批次的费用与排序的费用相同，因此设置在存储变量**batchFee**中。由于费用是在强制批发布时支付的，因此在批次定序时不会再次支付。
+
+为了成功发布强制批次到映射**forcedBatches**，必须满足以下条件，否则交易将被还原：
+* 合约不得处于紧急状态
+* 必须允许强制批次
+* 该参数**maticAmount**必须高于每批次的MATIC费用，
+* 交易字节数组的长度必须小于常量**_MAX_TRANSACTIONS_BYTE_LENGTH**（值为120000）。
+
+强制批次存入到由强制批次索引作key的映射forcedBatches中。
+
+```solidity
+struct ForcedBatchData { 
+    bytes transactions; 
+    bytes32 globalExitRoot; 
+    uint64 minForcedTimestamp;
+}
+```
+
+为每个强制批次发布递增的存储lastForceBatch变量用作强制批次计数器，从而提供特定的索引号。输入的值是来自lastForceBatch.
+存储变量lastForceBatch，随着每个强制批次的发布而递增，用作强制批次计数器，从而提供特定的索引号。输入的值是来自lastForceBatch的ABI编码打包结构字段的哈希摘要。
+
+```solidity
+keccak256(
+    abi.encodePacked(
+        keccak256(bytes transactions), 
+        bytes32 globalExitRoot,
+        unint64 minTimestamp
+    ) 
+);
+```
+
+出于存储使用优化的原因，存储槽（映射条目）仅用于存储强制批处理的承诺。数据可用性得到保证，因为它可以从交易calldata中恢复。
+合约将minTimestamp设置为L1区块时间戳，此时发布强制批次。
+在可信定序器失败的极端情况下，任何用户都可以使用sequenceForceBatches函数对强制批次进行排序：
+```solidity
+function sequenceForceBatches(
+    ForcedBatchData[] memory batches
+) public ifNotEmergencyState isForceBatchAllowed
+```
+
+函数sequenceForceBatches与函数sequenceBatches类似，但是在启用了强制批次的情况下函数sequenceForceBatches是可以被任何人调用。
+函数sequenceForceBatches确定提交序列中的每个批次是否已发布到映射forcedBatches的时间大于FORCE BATCH TIMEOUT.
+因为MATIC批次费用在发布时已经支付，所以不会被要求再次支付。
+如果强制批次的序列满足所有序列条件，它将作为常规序列添加到映射sequencedBatches中。最终，将生成一个事件sequenceForceBatches。
+
+```solidity
+event SequenceForceBatches(uint64 indexed numBatch);
+```
+
+请注意，由于使用函数**sequenceForceBatches**排序的强制批次的序列永远不会处于可信状态，因此节点的本地可信L2状态与L1合约PolygonZkEVM.sol中提交的虚拟L2状态之间将存在差异。
+
+节点软件已经检测到并处理了这种情况。它将根据从L1检索到的L2状态重组其本地L2状态实例。下图描述了执行强制批次序列时发生的可信L2状态和虚拟L2状态之间的区别。
+
+![diff trustd virtual state](assets/04002-diff-trustd-virtual-state.png)
+
+### 可信聚合器
+
+就像系统无法在没有活跃且运行良好的定序器的情况下达到L2最终状态一样，没有活跃且运行良好的聚合器就没有最终性。
+
+可信聚合器的缺失或失败意味着L2状态转换永远不会在L1中更新。出于这个原因，L1合约**PolygonZkEVM.sol**有一个名为**verifyBatches**的函数，它允许任何人聚合批次序列。
+
+```solidity
+function verifyBatches(
+    uint64 pendingStateNum,
+    uint64 initNumBatch,
+    uint64 finalNewBatch,
+    bytes32 newLocalExitRoot,
+    bytes32 newStateRoot,
+    uint256 [2] calldata proofA,
+    uint256 [2] [2] calldata proofB,
+    uint256 [2] calldata proofC,
+) public ifNotEmergencyState
+```
+
+如前所述，函数verifyBatches接受与函数trustedVerifyBatches相同的参数。但是，函数verifyBatches为要聚合的序列添加了两个额外的约束，以及一个名为Pending State的新L2 State阶段。
+除了函数trustedVerifyBatches所需的条件外，函数verifyBatches还必须满足以下条件：
+* 合约不得处于紧急状态
+* <font color="red">A trustedAggregatorTimeout storage variable delay from the timestamp of the last batch in the sequence (when the batch was sequenced) must have been passed.</font>合约管理员配置变量trustedAggregatorTimeout。
+
+如果满足所有条件，该函数将验证计算完整性的零知识证明。但是，与函数trustedVerifyBatches情况不同，如果验证成功序列不会立即聚合。相反，经过验证的序列被添加到映射pendingStateTransitions中，它将在 确定的时间延迟pendingStateTimeout后聚合到这里。
+
+```solidity
+// pendingStateNumber --> PendingState
+
+mapping(uint256 => PendingState) public pendingStateTransitions;
+```
+
+使用的结构如下所示：
+
+```solidity
+struct PendingState {
+    uint64  timestamp;
+    uint64  lastVerifiedBatch;
+    bytes32 exitRoot;
+    bytes32 stateRoot;
+}
+```
+
+已验证的批次序列保持在称为Pending state的中间状态，其中它们的状态转换尚未合并。在此状态下，新的L2状态根和桥的新GlobalExitRoot都没有添加到映射batchNumToStateRoot中。
+
+存储变量lastPendingState用于跟踪需要合并的挂起状态转换的数量，并用作映射的key。一旦零知识证明得到验证，聚合器将获得聚合奖励。
+
+下图从批处理的角度显示了L2阶段时间线，以及当通过函数verifyBatches聚合批次序列时触发其包含在下一个L2状态阶段的操作。
+
+![stages timeline pending](assets/04003-stages-timeline-pending.png)
+
+处于pending状态的批处理序列的存在对协议的正确和正常运行没有影响。非强制批次序列在pending序列之前进行验证，并不是所有的序列都进入pending状态。
+
+存储变量**lastVerifiedBatch**跟踪最近验证和聚合的批次的索引。因此，即使假装验证了批次序列，也会通过名为**getLastVerifiedBatch**的函数查询最后验证批次的索引。
+
+如果有任何未决的状态转换，该函数返回该状态中最后一批次的索引；否则，它返回**lastVerifiedBatch**。
+
+```solidity
+function getLastVerifiedBatch() public view returns (uint64)
+```
+
+当调用函数**sequenceBatches**，会尝试通过调用内部函数**_tryConsolidatePendingState**来合并挂起状态。如果**pendingStateTimeout**自挂起的批次验证以来已经过时，该函数将合并挂起的状态转换。不需要再次检查零知识证明，因为它已经被验证过了。
+
+该机制旨在帮助检测可能在零知识证明验证系统中被利用的任何稳健性漏洞，从而保护资产不被恶意行为者桥接到L2。
+
+### 紧急状态
+
+### 紧急状态与抵抗稳健性攻击
+
+紧急状态是一个共识合约状态（“PolygonZkEVM.sol”和“PolygonZkEVMBridge.sol”），当它被激活时，会终止批量排序和桥接操作。启用紧急状态的目的是让Polygon团队能够解决健全性漏洞或利用任何智能合约漏洞的案例。它是一种用于保护L2用户资产的安全措施。
+
+在紧急状态下，以下功能将被禁用:
+* sequenceBatches
+* verifyBatches
+* forceBatch
+* sequenceForceBatches
+* proveNonDeterministicPendingState
+
+因此，当合约处于紧急状态时，定序器无法对批次进行排序。同时，受信任的聚合器将能够合并额外的状态转换或覆盖可被证明是非确定性的未决状态转换。
+
+当使用两个不同的结果的L2状态根成功验证相同的批处理序列时，会发生非确定性状态转换。如果利用计算完整性的零知识证明验证中的稳健性漏洞，就会出现这种情况。
+
+### 什么时候激活紧急状态
+
+紧急状态只能由两个合约函数触发：
+1. 可以通过合约所有者调用函数**activateEmergencyState**直接激活。
+2. 在常量**HALT AGGREGATION TIMEOUT**延迟（一周）过去后，任何人都可以调用它。当与参数**sequencedBatchNum**对应的批次已排序但尚未验证时，超时开始。
+
+这种情况直接意味着没有人可以聚合批次序列。目的是暂时停止协议，直到聚合活动恢复。
+
+```solidity
+function activateEmergencyState(uint64 sequencedBatchNum) external
+```
+
+此外，任何人都可以使用函数**proveNonDeterministicPendingState**来触发紧急状态，但前提是他们可以证明某些待定状态是不确定的。
+
+```solidity
+function proveNonDeterministicPendingState( 
+   uint64 initPendingStateNum , 
+   uint64 finalPendingStateNum ,
+   uint64 initNumBatch ,
+   uint64 finalNewBatch , 
+   bytes32 newLocalExitRoot , 
+   bytes32 newStateRoot ,
+   uint256 [2] calldata proofA , 
+   uint256 [2][2] calldata proofB , 
+   uint256 [2] calldata proofC 
+) public ifNotEmergencyState
+```
+
+### 覆盖pending状态
+
+如果稳健性漏洞被利用，可信聚合器有能力覆盖非确定性pending状态。
+
+要启动覆盖，需使用函数**overridePendingState**。因为可信聚合器是系统中的可信实体，所以只有可信聚合器提供的L2状态根在非确定性状态转换的情况下才被认为对合并有效。
+
+```solidity
+function overridePendingState( 
+   uint64 initPendingStateNum , 
+   uint64 finalPendingStateNum , 
+   uint64 initNumBatch ,
+   uint64 finalNewBatch ,
+   bytes32 newLocalExitRoot ,
+   bytes32 newStateRoot ,
+   uint256 [2] calldata proofA , 
+   uint256 [2][2] calldata proofB , 
+   uint256 [2] calldata proofC 
+)  public onlyTrustedAggregator
+```
+
+要成功覆盖pending状态，可信聚合器必须提交一份证明，该证明将以与函数**proveNonDeterministicPendingState**中相同的方式进行验证。如果证明被成功验证，则pending的状态转换将被擦除，并直接合并一个新的状态转换。
+总结一下，能激活紧急状态的情况如下：
+* 当合约所有者认为合适时
+* 当聚合活动由于**HALT_AGGREGATION_TIMEOUT**而停止时
+* 当任何人都可以证明pending状态是不确定的。
+
 ## zkEVM桥
+
+### 协议概览
+
+任何区块链与其他区块链交换数据的能力对于它参与其他区块链的生态系统至关重要；这称为互操作性。
+Polygon团队以桥的形式为Polygon zkEVM L2网络创建了互操作性解决方案。zkEVM Bridge是一个组件，可实现Polygon zkEVM网络与其他网络（例如L1（以太坊主网）或构建在以太坊之上的任何L2）之间的通信和资产迁移。
+
+从用户的角度来看，在不改变原始资产的价值或功能的情况下将资产从一个网络转移到另一个网络的能力至关重要。此外，还支持跨链消息传递，允许在网络之间发送有效载荷。
+
+在Polygon zkEVM等L2 rollup中，L1智能合约确保正确管理L2状态转换和数据可用性。因此，通过适当的L2架构设计，Bridg智能合约（SC）的两端可以完全通过智能合约的逻辑进行同步。
+
+#### zkEVM桥架构
+
+下面通过类比来理解zKEVM Bridge协议设计:
+
+![polygon zkevm schema](assets/04004-polygon-zkevm-schema.png)
+
+考虑两个网络：L1和L2。为了在L1和L2之间桥接资产，用户必须将资产锁定在源网络（或L1）中。Bridge智能合约然后在目标网络L2中铸造等值的代表资产。这种铸造的资产被称为Wrapped Token。铸造完成后，资产可以由目标网络（L2）中的用户或接收者认领。也可以执行相反的操作。即烧毁Wrapped Token后，Bridge SC解锁源网中的原始资产。如前所述，存在第三个通道的可能性，其中Bridge SC用于跨链消息传递。也就是说，可以使用 Bridge SC 的Bridge和Claim操作将数据有效载荷从一个网络发送到另一个网络。
+
+#### 与以太坊2.0存款合约对比
+
+zkEVM Bridge SC的实现基于以太坊2.0存款合约，除了一些改动。例如，虽然它使用专门设计的仅附加的默克尔树，但它采用与以太坊2.0存款合约相同的逻辑。其他差异与基本哈希和叶节点有关。首先，存款合约使用SHA256，而zkEVM使用Keccak哈希函数。这一切都是因为，除了与EVM兼容之外，Keccak哈希函数在以太坊gas费用方面更便宜。其次，Bridge SC在第一次将新令牌添加到zkEVM网络时生成包装令牌。此外，将ERC20代币的元数据，例如名称、小数点或符号添加到叶中包含的信息中。因此，如本文件所述，每次转账都受到智能合约的保护。
+
+#### 特征
+
+Polygon zkEVM Bridge智能合约的主要特点是使用退出树和全局退出树，全局退出树根作为状态真相的主要来源。为L1和L2使用两个不同的全局出口根管理器，以及为Bridge SC和每个全局出口根管理器使用单独的逻辑，允许广泛的网络互操作性。
+同时，由于数据可用性，所有资产转移都可以通过任何L1和L2节点进行验证。
+以下部分解释了Polygon zkEVM Bridge相关智能合约如何确保zkEVM和任何网络之间传输的资产的安全性。
+
+### 退出树
+
+#### 退出树和全局退出树
+
+zkEVM的Bridge SC为参与通信或资产交换的每个网络使用一种称为退出树的特殊Merkle树。
+zkEVM的Bridge SC为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
+术语Exit Tree是指添加了特性的稀疏默克尔树（SMT），它的叶子节点记录有关资产被转移出网络的信息。Polygon zkEVM使用深度为32的Exit Tree。
+从现在开始，Exit Tree的叶子被称为出口叶子。出口叶子分为两种类型：类型0用于记录资产信息和类型1用于记录消息传递信息。
+
+出口叶子是具有以下参数的ABI编码打包结构的Keccak256散列：
+* uint8 leafType: 叶子类型：[0] 资产, [1] 消息
+* int32 originNetwork: 原网络ID，原始资产所属
+* address originAddress: 如果**leafType=0**，address是原始网络以太token地址(**0x0000...0000**)。如果**leafType=1**，address为消息的**msg.sender** 
+* uint32 destinationNetwork: 桥接目标网络ID
+* address destinationAddress: 将在目标网络中接收桥接资产的地址
+* uint256 amount: 桥接的代币/以太币数量
+* bytes32 metadataHash: 元数据的哈希，元数据将包含有关资产转移或消息有效负载的信息
+
+当用户承诺将资产从一个网络转移到另一个网络时，Bridge SC必须向该网络的Exit Tree添加一个出口叶。
+Exit Tree的Merkleit Tree Root，它是 Exit Tree 的叶子节点中记录的所有信息的指纹。
+
+因此，给定任何网络出口树，无论是 L1 还是 L2，其出Exit Root都是该网络的状态真实来源。
+
+#### 全局Exit Tree
+
+考虑在L1主网和L2网络之间桥接资产的场景。Global Exit Tree是一棵二叉Merkle Tree，其叶子节点是L1 Exit Tree的Merkle root和L2 Exit Tree的Merkle root。下图描绘了全局出口树。
+
+![global exit tree](assets/04005-global-exit-tree.png)
+
+Global Exit Tree的默克尔根称为Global Exit Root。
+
+应该注意的是，每当将出口叶子添加到L1或L2 Exit Tree时，都会计算一个新的相应Exit Tree Root。然后，Global Exit Tree将更新为新的L1或L2 Exit Tree Root。这意味着Global Exit Root始终代表两个网络在任何给定时间的状态。
+
+因为L1 Exit Tree的默克尔根保存了L1网络的状态值，而L2 Exit Tree的默克尔根也保存了L2网络的状态值，因此最近的Global Exit Root持有了L1和L2网络的状态值。
+
+一旦Global Exit Root在网络L1和L2之间同步，用户就可以使用默克尔证明来证明正确的出口叶包含和声明转移的资产。
+这就是完整的资产转移或跨链消息传递的完成方式；它以源网络中的Bridge功能开始，以目标网络中的Claim功能结束，Exit Tree Roots在两端承载状态值。
+
+#### 资产转移场景
+
+提供了两个场景来演示Exit Tree和Global Exit Tree在资产转移过程中的作用。
+
+##### 从L1转账到Rollup L2
+
+场景：用户想要将资产从L1主网转移到L2Rollup。
+一旦用户提交转移，一个新的出口叶与被桥接资产的信息被附加到L1 Exit Tree。传输数据通常如下所示：
+```
+Origin network: 0 (L1)
+Origin address: 0x56566... 
+Dest Network: 1 (L2)
+Dest Address: 0x12345...
+Amount: 145
+Metadata: 0x0...
+```
+
+添加的新出口叶子意味着L1 Exit Tree现在有一个新的根。然后将新的L1 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Tree Root。
+
+为了在目标L2网络上声明桥接资产，需要使用默克尔证明检查Global Exit Tree Root。也就是说，可以使用默克尔证明来检查是否确实存在由相应的L1 Exit Tree Root表示的Global Exit Tree中的出口叶（资产信息被桥接到L2）。
+
+![exit leaf add L1 L2](assets/04006-exit-leaf-add-L1-L2.png)
+
+##### 从Rollup L2转账到L1
+
+场景：从L2 Rollup转到主网L1。在这种情况下，遵循与上述示例相同的过程，只是方向相反。
+
+也就是说，一旦用户提交了转移，出口叶就会添加到具有相应转移信息的L2 Exit Tree中。传输数据通常如下所示：
+
+```
+Origin network: 3 (L2)
+Origin address: 0x34655... 
+Dest Network: 0 (L1)
+Dest Address: 0x27564...
+Amount: 92
+Metadata: 0x116...
+```
+
+新添加的L2出口叶子意味着L2 Exit Tree有一个新的根。然后将新的L2 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Tree Root。
+
+### 智能合约
+
+介绍三个智能合约如何实现资产转移：桥SC（PolygonZkEVMBridge.sol）、Global Exit Tree Root管理器（PolygonZkEVMGlobalExitRoot.sol）和共识合约（PolygonZkEVM.sol）。
+
+#### 桥智能合约
+
+zkEVM Bridge智能合约（PolygonZkEVMBridge.sol）执行两个功能：Bridge（或存款）和Claim（或取款）功能。它支持将资产从一个网络桥接到另一个网络，以及声明在目标网络中收到的资产。
+一旦用户启动并承诺将资产从网络L2转移到L1，zkEVM Bridge SC就会向L2 Exit Tree添加出口叶。相应的传输数据包含在这样的出口叶中。之后，L2 Exit Tree的根被更新并可用于工作流中的下一个智能合约，即Global Exit Tree Root管理器 SC。
+
+#### Global Exit Tree Root管理器合约
+
+Global Exit Tree Root管理器SC（PolygonZkEVMGlobalExitRoot.sol、PolygonZkEVMGlobalExitRootL2.sol）管理Global Exit Tree Root。它负责更新 Global Exit Tree Root并充当Global Exit Tree历史的存储库。
+
+zkEVM Bridge SC的逻辑已与Global Exit Root 管理器SC的逻辑分离，以实现改进的互操作性。这意味着zkEVM Bridge SC与 Global Exit Root 管理器SC一起可以安装在任何网络中以达到相同的效果。
+
+#### 共识合约
+
+智能合约**PolygonZkEVM.sol**是Polygon zkEVM中使用的共识算法。
+
+**PolygonZkEVM.sol** SC位于L1以帮助进行批量验证。一旦对交易批次进行排序，就会向聚合器发出请求以证明排序批次的有效性。该证明是零知识证明，使用**Verifier.sol**合约进行验证。
+
+在ZK-proof验证后，共识SC将zkEVM Exit Tree Root发送给Global Exit Root管理器SC、**PolygonZkEVMGlobalExitRoot.sol** SC，用于更新Global Exit Root。
+
+=========================================================================================================================================
+
+### 资产流向
+
 ## EVM和zkEVM
 
 # zkNode
@@ -645,7 +1049,7 @@ The graph below shows the percentage variation of the **batchFee** variable depe
 # zk Assembly
 # 多项恒等式语言
 
-==========================================================================================================================================
+=========================================================================================================================================
 
 
 ## 运行本地zkNode
@@ -666,7 +1070,7 @@ Layer1或基础区块链是安装汇总智能合约的地方。它是以太坊�
 Layer2指的是rollup网络；在这里指Polygon zkEVM网络。
 
 共识合约 (PolygonZkEVM.sol)
-Polygon zkEVM网络使用的共识机制。它由部署在第1层（在本例中为以太坊）的智能合约执行。
+Polygon zkEVM网络使用的共识机制。它由部署在L1（在本例中为以太坊）的智能合约执行。
 
 批
 一组使用 zkProver 执行/证明并发送到/从L1同步的交易。

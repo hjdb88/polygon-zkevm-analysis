@@ -179,6 +179,7 @@ contract PolygonZkEVM is
     // ForceBatchNum --> hashedForcedBatchData
     // hashedForcedBatchData: hash containing the necessary information to force a batch:
     // keccak256(keccak256(bytes transactions), bytes32 globalExitRoot, unint64 minForcedTimestamp)
+    // 强制批次队列及其相关数据，ForceBatchNum -> hashedForcedBatchData
     mapping(uint64 => bytes32) public forcedBatches;
 
     // Queue of batches that defines the virtual state
@@ -259,6 +260,7 @@ contract PolygonZkEVM is
 
     /**
      * @dev Emitted when forced batches are sequenced by not the trusted sequencer
+     * 当强制批次由不可信的定序器排序时发出
      */
     event SequenceForceBatches(uint64 indexed numBatch);
 
@@ -474,12 +476,16 @@ contract PolygonZkEVM is
 
     /////////////////////////////////////
     // Sequence/Verify batches functions
+    // 序列/验证批次函数
     ////////////////////////////////////
 
     /**
      * @notice Allows a sequencer to send multiple batches
+     * 允许一个定序器发送多个批次
      * @param batches Struct array which holds the necessary data to append new batches to the sequence
+     *                结构数组，它包含将新批次附加到序列中所需的数据
      * @param l2Coinbase Address that will receive the fees from L2
+     *                   将从L2接收费用的地址
      */
     function sequenceBatches(
         BatchData[] calldata batches,
@@ -495,6 +501,7 @@ contract PolygonZkEVM is
         }
 
         // Store storage variables in memory, to save gas, because will be overrided multiple times
+        // 将存储变量存储在内存中，以节省gas，因为会被多次重写
         uint64 currentTimestamp = lastTimestamp;
         uint64 currentBatchSequenced = lastBatchSequenced;
         uint64 currentLastForceBatchSequenced = lastForceBatchSequenced;
@@ -502,6 +509,7 @@ contract PolygonZkEVM is
             .accInputHash;
 
         // Store in a temporal variable, for avoid access again the storage slot
+        // 存储在临时变量中，以避免再次访问存储槽
         uint64 initLastForceBatchSequenced = currentLastForceBatchSequenced;
 
         for (uint256 i = 0; i < batchesNum; i++) {
@@ -509,11 +517,13 @@ contract PolygonZkEVM is
             BatchData memory currentBatch = batches[i];
 
             // Store the current transactions hash since can be used more than once for gas saving
+            // 存储当前交易的哈希值，因为它不止使用一次，达到节省gas的效果
             bytes32 currentTransactionsHash = keccak256(
                 currentBatch.transactions
             );
 
             // Check if it's a forced batch
+            // 检查是否是强制批处理
             if (currentBatch.minForcedTimestamp > 0) {
                 currentLastForceBatchSequenced++;
 
@@ -526,6 +536,7 @@ contract PolygonZkEVM is
                     )
                 );
 
+                // 检查强制数据是否匹配
                 if (
                     hashedForcedBatchData !=
                     forcedBatches[currentLastForceBatchSequenced]
@@ -534,6 +545,7 @@ contract PolygonZkEVM is
                 }
 
                 // Delete forceBatch data since won't be used anymore
+                // 删除 forceBatch 数据，因为将不再使用
                 delete forcedBatches[currentLastForceBatchSequenced];
 
                 // Check timestamp is bigger than min timestamp
@@ -626,12 +638,19 @@ contract PolygonZkEVM is
 
     /**
      * @notice Allows an aggregator to verify multiple batches
+     * 允许聚合器验证多个批次
      * @param pendingStateNum Init pending state, 0 if consolidated state is used
+     *                        初始化挂起状态，如果使用合并状态则为0
      * @param initNumBatch Batch which the aggregator starts the verification
+     *                     聚合器开始验证的批次
      * @param finalNewBatch Last batch aggregator intends to verify
+     *                      准备验证的最后一批聚合器
      * @param newLocalExitRoot  New local exit root once the batch is processed
+     *                          批处理完成后新的本地exit root
      * @param newStateRoot New State root once the batch is processed
+     *                     批次处理后的新状态根
      * @param proof fflonk proof
+     *              fflonk证明
      */
     function verifyBatches(
         uint64 pendingStateNum,
@@ -643,6 +662,8 @@ contract PolygonZkEVM is
     ) external ifNotEmergencyState {
         // Check if the trusted aggregator timeout expired,
         // Note that the sequencedBatches struct must exists for this finalNewBatch, if not newAccInputHash will be 0
+        // 检查可信聚合器超时是否过期，
+        // 注意这个finalNewBatch的sequencedBatches结构必须存在，否则newAccInputHash将为 0
         if (
             sequencedBatches[finalNewBatch].sequencedTimestamp +
                 trustedAggregatorTimeout >
@@ -655,6 +676,7 @@ contract PolygonZkEVM is
             revert ExceedMaxVerifyBatches();
         }
 
+        // 内部函数用于验证和奖励批次
         _verifyAndRewardBatches(
             pendingStateNum,
             initNumBatch,
@@ -665,23 +687,28 @@ contract PolygonZkEVM is
         );
 
         // Update batch fees
+        // 更新批次费用
         _updateBatchFee(finalNewBatch);
 
         if (pendingStateTimeout == 0) {
             // Consolidate state
+            // 合并状态
             lastVerifiedBatch = finalNewBatch;
             batchNumToStateRoot[finalNewBatch] = newStateRoot;
 
             // Clean pending state if any
+            // 如果有则清除挂起状态
             if (lastPendingState > 0) {
                 lastPendingState = 0;
                 lastPendingStateConsolidated = 0;
             }
 
             // Interact with globalExitRootManager
+            // 与globalExitRootManager交互
             globalExitRootManager.updateExitRoot(newLocalExitRoot);
         } else {
             // Consolidate pending state if possible
+            // 如果可能，合并挂起状态
             _tryConsolidatePendingState();
 
             // Update pending state
@@ -1004,28 +1031,38 @@ contract PolygonZkEVM is
 
     ////////////////////////////
     // Force batches functions
+    // 强制批处理函数
     ////////////////////////////
 
     /**
      * @notice Allows a sequencer/user to force a batch of L2 transactions.
      * This should be used only in extreme cases where the trusted sequencer does not work as expected
+     * 允许定序器/用户强制执行一批L2交易。
+     * 这应该只在受信任的定序器没有按预期工作的极端情况下使用
      * Note The sequencer has certain degree of control on how non-forced and forced batches are ordered
      * In order to assure that users force transactions will be processed properly, user must not sign any other transaction
      * with the same nonce
+     * 定序器对非强制和强制批次的排序有一定程度的控制
+     * 为确保用户强制交易得到妥善处理，用户不得签署任何其他具有相同随机数的交易
      * @param transactions L2 ethereum transactions EIP-155 or pre-EIP-155 with signature:
+     *                     L2以太坊带签名的EIP-155交易或者pre-EIP-155交易
      * @param maticAmount Max amount of MATIC tokens that the sender is willing to pay
+     *                    发送者愿意支付的最大MATIC代币数量
      */
     function forceBatch(
         bytes calldata transactions,
         uint256 maticAmount
     ) public isForceBatchAllowed ifNotEmergencyState {
         // Calculate matic collateral
+        // 计算macti抵押品
         uint256 maticFee = getForcedBatchFee();
 
+        // 校验matic是否充足
         if (maticFee > maticAmount) {
             revert NotEnoughMaticAmount();
         }
 
+        // 校验交易长度是否超过强制批次最大字节长度限制
         if (transactions.length > _MAX_FORCE_BATCH_BYTE_LENGTH) {
             revert TransactionsLengthAboveMax();
         }
@@ -1037,6 +1074,7 @@ contract PolygonZkEVM is
             .getLastGlobalExitRoot();
 
         // Update forcedBatches mapping
+        // 更新映射forcedBatches
         lastForceBatch++;
 
         forcedBatches[lastForceBatch] = keccak256(
@@ -1064,7 +1102,9 @@ contract PolygonZkEVM is
 
     /**
      * @notice Allows anyone to sequence forced Batches if the trusted sequencer has not done so in the timeout period
+     * 如果受信任的定序器在超时期限内没有这样做，则允许任何人对强制批次进行排序
      * @param batches Struct array which holds the necessary data to append force batches
+     *                包含附加强制批处理所需数据的结构数组
      */
     function sequenceForceBatches(
         ForcedBatchData[] calldata batches
@@ -1087,18 +1127,21 @@ contract PolygonZkEVM is
         }
 
         // Store storage variables in memory, to save gas, because will be overrided multiple times
+        // 将存储变量存储在内存中，以节省gas，因为会被多次重写
         uint64 currentBatchSequenced = lastBatchSequenced;
         uint64 currentLastForceBatchSequenced = lastForceBatchSequenced;
         bytes32 currentAccInputHash = sequencedBatches[currentBatchSequenced]
             .accInputHash;
 
         // Sequence force batches
+        // 对强制批次定序
         for (uint256 i = 0; i < batchesNum; i++) {
             // Load current sequence
             ForcedBatchData memory currentBatch = batches[i];
             currentLastForceBatchSequenced++;
 
             // Store the current transactions hash since it's used more than once for gas saving
+            // 存储当前交易的哈希值，因为它不止使用一次，达到节省gas的效果
             bytes32 currentTransactionsHash = keccak256(
                 currentBatch.transactions
             );
@@ -1112,6 +1155,7 @@ contract PolygonZkEVM is
                 )
             );
 
+            // 检查强制数据是否匹配
             if (
                 hashedForcedBatchData !=
                 forcedBatches[currentLastForceBatchSequenced]
@@ -1120,10 +1164,12 @@ contract PolygonZkEVM is
             }
 
             // Delete forceBatch data since won't be used anymore
+            // 删除forceBatch数据，因为将不再使用
             delete forcedBatches[currentLastForceBatchSequenced];
 
             if (i == (batchesNum - 1)) {
                 // The last batch will have the most restrictive timestamp
+                // 最后一批将具有最严格的时间戳
                 if (
                     currentBatch.minForcedTimestamp + forceBatchTimeout >
                     block.timestamp
@@ -1132,6 +1178,7 @@ contract PolygonZkEVM is
                 }
             }
             // Calculate next acc input hash
+            // 计算下一个acc输入哈希
             currentAccInputHash = keccak256(
                 abi.encodePacked(
                     currentAccInputHash,
@@ -1143,11 +1190,13 @@ contract PolygonZkEVM is
             );
         }
         // Update currentBatchSequenced
+        // 更新currentBatchSequenced
         currentBatchSequenced += uint64(batchesNum);
 
         lastTimestamp = uint64(block.timestamp);
 
         // Store back the storage variables
+        // 回存存储变量
         sequencedBatches[currentBatchSequenced] = SequencedBatchData({
             accInputHash: currentAccInputHash,
             sequencedTimestamp: uint64(block.timestamp),
