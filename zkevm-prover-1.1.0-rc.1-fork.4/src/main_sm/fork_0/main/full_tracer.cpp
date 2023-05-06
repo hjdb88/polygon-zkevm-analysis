@@ -122,6 +122,7 @@ inline void getVarFromCtx(Context &ctx, bool global, uint64_t varOffset, mpz_cla
 }
 
 // Get the stored calldata in the stack
+// 获取栈中存储的调用数据
 inline void getCalldataFromStack(Context &ctx, uint64_t offset, uint64_t length, string &result)
 {
     uint64_t contextAddress = ctx.fr.toU64(ctx.pols.CTX[*ctx.pStep])*0x40000;

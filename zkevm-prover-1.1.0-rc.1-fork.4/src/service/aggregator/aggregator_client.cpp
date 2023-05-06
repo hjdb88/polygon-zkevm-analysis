@@ -31,13 +31,16 @@ void AggregatorClient::waitForThread (void)
 bool AggregatorClient::GetStatus (::aggregator::v1::GetStatusResponse &getStatusResponse)
 {
     // Lock the prover
+    // 锁定证明者
     prover.lock();
 
     // Set last computed request data
+    // 设置最后计算的请求数据
     getStatusResponse.set_last_computed_request_id(prover.lastComputedRequestId);
     getStatusResponse.set_last_computed_end_time(prover.lastComputedRequestEndTime);
 
     // If computing, set the current request data
+    // 如果计算，设置当前请求数据
     if ((prover.pCurrentRequest != NULL) || (prover.pendingRequests.size() > 0))
     {
         getStatusResponse.set_status(aggregator::v1::GetStatusResponse_Status_STATUS_COMPUTING);
@@ -60,28 +63,35 @@ bool AggregatorClient::GetStatus (::aggregator::v1::GetStatusResponse &getStatus
     }
 
     // Set the versions
+    // 设置版本
     getStatusResponse.set_version_proto("v0_0_1");
     getStatusResponse.set_version_server("0.0.1");
 
     // Set the list of pending requests uuids
+    // 设置待处理请求 uuid 列表
     for (uint64_t i=0; i<prover.pendingRequests.size(); i++)
     {
         getStatusResponse.add_pending_request_queue_ids(prover.pendingRequests[i]->uuid);
     }
 
     // Unlock the prover
+    // 解锁证明者
     prover.unlock();
 
     // Set the prover id
+    // 设置证明者id
     getStatusResponse.set_prover_id(config.proverID);
 
     // Set the prover name
+    // 设置证明者名称
     getStatusResponse.set_prover_name(config.proverName);
 
     // Set the number of cores
+    // 设置核心数
     getStatusResponse.set_number_of_cores(getNumberOfCores());
 
     // Set the system memory details
+    // 设置系统内存详细信息
     MemoryInfo memoryInfo;
     getMemoryInfo(memoryInfo);
     getStatusResponse.set_total_memory(memoryInfo.total);

@@ -176,6 +176,7 @@ func (p *Prover) AggregatedProof(inputProof1, inputProof2 string) (*string, erro
 
 // FinalProof instructs the prover to generate a final proof for the given
 // input. It returns the ID of the proof being computed.
+// 指示证明者为给定输入生成最终证明。它返回正在计算的证明的ID。
 func (p *Prover) FinalProof(inputProof string, aggregatorAddr string) (*string, error) {
 	metrics.WorkingProver()
 

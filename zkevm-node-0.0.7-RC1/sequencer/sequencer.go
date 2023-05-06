@@ -103,6 +103,7 @@ func New(cfg Config, txPool txPool, state stateInterface, etherman etherman, man
 }
 
 // Start starts the sequencer
+// 启动定序器
 func (s *Sequencer) Start(ctx context.Context) {
 	for !s.isSynced(ctx) {
 		log.Infof("waiting for synchronizer to sync...")

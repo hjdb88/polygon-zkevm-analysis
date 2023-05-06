@@ -101,7 +101,7 @@ public:
     const Config &config; // Configuration
     RawFec &fec; // Fec reference
     RawFnec &fnec; // Fnec reference
-    MainCommitPols &pols; // PIL JSON file polynomials data
+    MainCommitPols &pols; // PIL JSON file polynomials data   PIL JSON文件多项式数据
     const Rom &rom; // Rom reference
     LastSWrite lastSWrite; // Keep track of the last storage write
     ProverRequest &proverRequest;

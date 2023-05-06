@@ -164,9 +164,11 @@ contract PolygonZkEVM is
 
     // Time target of the verification of a batch
     // Adaptatly the batchFee will be updated to achieve this target
+    // 批量验证的时间目标。适应性地更新 batchFee 以实现此目标
     uint64 public verifyBatchTimeTarget;
 
     // Batch fee multiplier with 3 decimals that goes from 1000 - 1023
+    // 具有3位小数的批量费用乘数，范围为1000-1023
     uint16 public multiplierBatchFee;
 
     // Trusted sequencer address
@@ -772,12 +774,19 @@ contract PolygonZkEVM is
 
     /**
      * @notice Verify and reward batches internal function
+     * 验证和奖励批次内部函数
      * @param pendingStateNum Init pending state, 0 if consolidated state is used
+     *                        初始化pending状态，如果使用合并状态则为0
      * @param initNumBatch Batch which the aggregator starts the verification
+     *                     聚合器开始验证的批次
      * @param finalNewBatch Last batch aggregator intends to verify
+     *                      最后一批聚合器打算验证
      * @param newLocalExitRoot  New local exit root once the batch is processed
+     *                          一旦批次被处理，新的本地退出根
      * @param newStateRoot New State root once the batch is processed
+     *                     一旦批次被处理，新状态根
      * @param proof fflonk proof
+     *              fflonk 证明
      */
     function _verifyAndRewardBatches(
         uint64 pendingStateNum,
@@ -830,6 +839,7 @@ contract PolygonZkEVM is
         }
 
         // Get snark bytes
+        // 获取snark数据
         bytes memory snarkHashBytes = getInputSnarkBytes(
             initNumBatch,
             finalNewBatch,
@@ -839,8 +849,10 @@ contract PolygonZkEVM is
         );
 
         // Calulate the snark input
+        // 计算snark输入
         uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
         // Verify proof
+        // 验证证明
         if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
             revert InvalidProof();
         }
@@ -1545,6 +1557,7 @@ contract PolygonZkEVM is
         }
 
         // Get snark bytes
+        // 获取snark字节
         bytes memory snarkHashBytes = getInputSnarkBytes(
             initNumBatch,
             finalNewBatch,
@@ -1554,9 +1567,11 @@ contract PolygonZkEVM is
         );
 
         // Calulate the snark input
+        // 计算snark输入
         uint256 inputSnark = uint256(sha256(snarkHashBytes)) % _RFIELD;
 
         // Verify proof
+        // 验证证明
         if (!rollupVerifier.verifyProof(proof, [inputSnark])) {
             revert InvalidProof();
         }

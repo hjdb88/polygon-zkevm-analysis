@@ -354,6 +354,7 @@ func (f *finalizer) newWIPBatch(ctx context.Context) (*WipBatch, error) {
 }
 
 // processTransaction processes a single transaction.
+// 处理单笔交易
 func (f *finalizer) processTransaction(ctx context.Context, tx *TxTracker) error {
 	var txHash string
 	if tx != nil {

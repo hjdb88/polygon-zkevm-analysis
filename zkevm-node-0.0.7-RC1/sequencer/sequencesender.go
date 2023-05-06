@@ -23,6 +23,7 @@ const (
 	monitoredIDFormat = "sequence-from-%v-to-%v"
 )
 
+// tryToSendSequence 尝试发送批次
 func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) {
 	retry := false
 	// process monitored sequences before starting a next cycle

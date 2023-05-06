@@ -29,9 +29,11 @@ using grpc::Status;
 #endif
 
     // Create and init an instance of ProverRequest
+    // 创建并初始化 ProverRequest 的实例
     ProverRequest proverRequest(fr, config, prt_processBatch);
 
     // Save request to file
+    // 将请求保存到文件
     if (config.saveRequestToFile)
     {
         string2file(request->DebugString(), proverRequest.filePrefix + "executor_request.txt");
@@ -77,6 +79,7 @@ using grpc::Status;
     proverRequest.input.publicInputsExtended.publicInputs.forkID = request->fork_id();
 
     // Create full tracer based on fork ID
+    // 根据分叉 ID 创建完整的跟踪器
     proverRequest.CreateFullTracer();
     if (proverRequest.result != ZKR_SUCCESS)
     {

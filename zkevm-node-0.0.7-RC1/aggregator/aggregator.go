@@ -145,6 +145,7 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	a.resetVerifyProofTime()
 
 	go a.cleanupLockedProofs()
+	// 发送最后证明
 	go a.sendFinalProof()
 
 	<-ctx.Done()
@@ -159,6 +160,7 @@ func (a *Aggregator) Stop() {
 
 // Channel implements the bi-directional communication channel between the
 // Prover client and the Aggregator server.
+// 实现证明者客户端和聚合器服务器之间的双向通信通道。
 func (a *Aggregator) Channel(stream pb.AggregatorService_ChannelServer) error {
 	metrics.ConnectedProver()
 	defer metrics.DisconnectedProver()
@@ -210,6 +212,7 @@ func (a *Aggregator) Channel(stream pb.AggregatorService_ChannelServer) error {
 				continue
 			}
 
+			// 检查提供的证明是否有资格用于构建最终证明
 			_, err = a.tryBuildFinalProof(ctx, prover, nil)
 			if err != nil {
 				log.Errorf("Error checking proofs to verify: %v", err)
@@ -238,6 +241,11 @@ func (a *Aggregator) Channel(stream pb.AggregatorService_ChannelServer) error {
 // - send the final proof to L1
 // - wait for the synchronizer to catch up
 // - clean up the cache of recursive proofs
+// 此函数等待从证明者那里接收最终证明。一旦收到
+// 证明，它按顺序执行这些步骤：
+// -将最终证明发送给 L1
+// -等待同步器赶上
+// -清理递归证明的缓存
 func (a *Aggregator) sendFinalProof() {
 	for {
 		select {
@@ -269,6 +277,7 @@ func (a *Aggregator) sendFinalProof() {
 
 			// add batch verification to be monitored
 			sender := common.HexToAddress(a.cfg.SenderAddress)
+			// 向L1合约提交证明验证
 			to, data, err := a.Ethman.BuildTrustedVerifyBatchesTxData(proof.BatchNumber-1, proof.BatchNumberFinal, &inputs)
 			if err != nil {
 				log.Errorf("Error estimating batch verification to add to eth tx manager: %v", err)
@@ -353,6 +362,9 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 // build the final proof.  If no proof is provided it looks for a previously
 // generated proof.  If the proof is eligible, then the final proof generation
 // is triggered.
+// 检查提供的证明是否有资格用于构建最终证明。
+// 如果没有提供证据，它会查找以前的生成的证明。
+// 如果证明是合格的，那么最终的证明生成被触发。
 func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterface, proof *state.Proof) (bool, error) {
 	proverName := prover.Name()
 	proverID := prover.ID()
@@ -428,6 +440,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	)
 
 	// at this point we have an eligible proof, build the final one using it
+	// 在这一点上，我们有一个合格的证明，使用它构建最终的证明
 	finalProof, err := a.buildFinalProof(ctx, prover, proof)
 	if err != nil {
 		err = fmt.Errorf("failed to build final proof, %w", err)

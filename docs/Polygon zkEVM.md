@@ -203,7 +203,7 @@ zkEVM在设计时就考虑到了安全性。而作为L2解决方案，大部分�
 
 
 
-========================================================================================================================================================================================
+-----
 
 
 
@@ -218,7 +218,7 @@ Polygon zkEVM是一种Layer 2 Rollup解决方案，它结合了以太坊区块�
 zkEVM三个主要的组件是
 * 可信定序器
 * 可信聚合器
-* 智能合约（PolygonZkEVM.sol，部署在L1）
+* 共识合约（PolygonZkEVM.sol，部署在L1）
 
 #### 可信定序器
 
@@ -245,13 +245,13 @@ zkEVM节点是一个软件包，包含运行zkEVM网络所需的所有组件。�
 
 #### 定序器模式
 
-在定序器模式下，节点持有一个L2State实例，管理批量广播到其他L2网络节点，并有一个内置的API来处理L2用户交互（交易请求和L2状态查询）。还有一个数据库用于临时存储尚未订购和执行的交易（待定交易池），以及与L1交互所需的所有组件，以便对交易批次进行排序并保持其本地L2状态最新。
+在定序器模式下，节点持有一个L2State实例，管理批次广播到其他L2网络节点，并有一个内置的API来处理L2用户交互（交易请求和L2状态查询）。还有一个数据库用于临时存储尚未订购和执行的交易（待定交易池），以及与L1交互所需的所有组件，以便对交易批次进行排序并保持其本地L2状态最新。
 
 #### 聚合器模式
 
 在聚合器模式下，节点具有执行交易批次、计算结果L2状态和生成计算完整性的零知识证明所需的所有组件。此外，具有获取由可信定序器在L1中提交的交易批次所需的所有组件，并调用函数来公开验证L1上的L2状态转换。
 
-#### RPC
+#### RPC模式
 
 在RPC模式下，zKEVM节点的功能有限。它主要维护L2状态的最新实例，最初是关于可信定序器广播的批次，后来是从共识合约中获取的批次序列。该节点持续与L1交互，以保持本地L2状态最新，并检查L2状态根的同步。同步器的默认同步速率是每2秒一次，除非在配置中另有设定。
 
@@ -335,7 +335,7 @@ struct BatchData {
 
 如果批次是所谓的强制批次，则此参数必须大于零。通过使用强制批次来抵制审查。
 
-### 批量定序
+### 批次定序
 
 在批次成为L2虚拟状态的一部分之前，需要对批次进行排序和验证。
 可信定序器使用L1 PolygonZkEVM.sol合约的映射成功地将一个批次添加到一系列批次中sequencedBatches，该映射基本上是一个存储结构，用于保存定义虚拟状态的序列队列。
@@ -356,14 +356,14 @@ function sequenceBatches (
 下图显示了批次序列的逻辑结构。
 ![sequencing batches](assets/02003_sequencing-batches.png)
 
-#### 最大和最小批量大小
+#### 最大和最小批次大小
 
 合约的公共常量MAX TRANSACTIONS BYTE LENGTH决定了一个批次中可以包含的最大交易数（300000）。类似地，序列中的批次数量受合约的公共常量MAX VERIFY BATCHES（1000）限制。批次数组必须至少包含一个批次，并且不超过常量MAX VERIFY BATCHES的值。只有可信定序器的以太坊账户可以访问映射sequencedBatches。合约也必须不处于紧急状态。如果不满足上述条件，函数调用将被还原。
 
 #### 批次有效性和L2状态完整性
 
 该sequencedBatches函数遍历每批序列，检查其有效性。有效批次必须满足以下条件：
-  * 它必须包含一个globalExitRoot存在于桥的L1合约PolygonZkEVMGlobalExitRoot.sol的GlobalExitRootMap中。只有包含有效的globalExitRoo，批次才有效。
+  * 它必须包含一个globalExitRoot存在于桥的L1合约PolygonZkEVMGlobalExitRoot.sol的GlobalExitRootMap中。只有包含有效的globalExitRoot，批次才有效。
   * 交易字节数组的长度必须小于常量MAX_TRANSACTIONS_BYTE_LENGTH的值。
   * 该批次的时间戳必须大于或等于最后一个被排序的批次的时间戳，但小于或等于执行排序的L1交易所在块的时间戳。所有批次必须按时间排序。
 
@@ -435,7 +435,7 @@ event SequenceBatches (uint64 indexed numBatch)
 ```
 一旦批次在L1中成功排序，所有zkEVM节点都可以通过直接从L1合约PolygonZkEVM.sol获取数据来同步其本地L2状态，而不必单独依赖可信定序器。这就是达到L2虚拟状态的方式。
 
-### 批量聚合
+### 批次聚合
 
 可信聚合器最终应聚合可信定序器先前提交的批次序列，以实现L2状态最后阶段，即合并状态。
 
@@ -453,7 +453,7 @@ SNARK（Succinct Non-interactive Arguments of Knowledge）是底层的零知识�
 如上图所示，批次的链下执行将假定L2状态转换，并因此更改为新的L2状态根。
 聚合器生成执行的计算完整性（CI）证明，其链上验证确保生成的L2状态根的有效性。
 
-#### Aggregating a Sequence of Batches
+#### 聚合定序的批次
 为了聚合一系列批次，可信聚合器必须调用**trustedVerifyBatches**方法：
 ```solidity
 function trustedVerifyBatches (
@@ -595,7 +595,7 @@ batchReward=“contract MATIC balance”/“Quantity of batches not aggregated y
 
 ### 变量**batchFee**重新调整
 
-batchFee由独立聚合器对序列的每次聚合进行自动调整序。
+batchFee由独立聚合器对序列的每次聚合进行自动调整。
 
 当可信聚合器无法正常工作并且常量**batchFee**需要更改以鼓励聚合时，就会发生这种情况。在接下来的部分中提供了有关可信聚合器不活动或故障的更多信息。
 
@@ -606,7 +606,7 @@ function _updateBatchFee(uint64 newLastVerifiedBatch) internal
 
 管理员定义了两个用于费用调整方法的存储变量：
 * veryBatchTimeTarget：这是验证批次的目标时间，因此将更新变量batchFee以实现此目标
-* multiplierBatchFee：是批量费用乘数，保留3位小数，取值范围为1000到1024。
+* multiplierBatchFee：是批次费用乘数，保留3位小数，取值范围为1000到1024。
 该函数**_updateBatchFee**首先确定有多少聚合批次迟到了。即那些在序列中但还没有聚合的。
 第二，经过了多少时间，如**veryBatchTimeTarget**所示。
 
@@ -706,7 +706,7 @@ mapping(uint64 => bytes32) public forcedBatches;
 注意：可信定序器将在未来的序列中包含这些强制批次，以保持其作为可信实体的状态。否则，用户将能够证明他们正在被审查，可信定序器的信任状态将被撤销。
 
 尽管可信定序器被激励对映射**forcedBatches**中发布的强制批次进行排序，但这并不能保证这些批次中交易执行的最终性。
-为了确保在可信定序器发生故障的情况下的最终性，L1合约**PolygonZkEVM.sol**有一个名为**sequenceForceBatches**的替代批量排序函数。此函数允许任何人对已在映射**multiplierBatchFee**中发布了一段时间的强制批次进行排序，该时间段由公共常量**FORCE_BATCH_TIMEOUT**指定，但尚未排序。超时设置为5天。
+为了确保在可信定序器发生故障的情况下的最终性，L1合约**PolygonZkEVM.sol**有一个名为**sequenceForceBatches**的替代批次排序函数。此函数允许任何人对已在映射**multiplierBatchFee**中发布了一段时间的强制批次进行排序，该时间段由公共常量**FORCE_BATCH_TIMEOUT**指定，但尚未排序。超时设置为5天。
 
 任何用户都可以通过直接调用函数**forceBatch**来发布要强制执行的批次：
 ```solidity
@@ -717,7 +717,7 @@ function forceBatch(
 ```
 其中，
 * **transactions**是包含连接的批量交易的字节数组（与正常的批量交易格式相同）
-* **maticAmount**是用户愿意为强制批量发布支付的最大MATIC代币数额。发布强制批次的费用与排序的费用相同，因此设置在存储变量**batchFee**中。由于费用是在强制批发布时支付的，因此在批次定序时不会再次支付。
+* **maticAmount**是用户愿意为强制批次发布支付的最大MATIC代币数额。发布强制批次的费用与排序的费用相同，因此设置在存储变量**batchFee**中。由于费用是在强制批发布时支付的，因此在批次定序时不会再次支付。
 
 为了成功发布强制批次到映射**forcedBatches**，必须满足以下条件，否则交易将被还原：
 * 合约不得处于紧急状态
@@ -841,7 +841,7 @@ function getLastVerifiedBatch() public view returns (uint64)
 
 ### 紧急状态与抵抗稳健性攻击
 
-紧急状态是一个共识合约状态（“PolygonZkEVM.sol”和“PolygonZkEVMBridge.sol”），当它被激活时，会终止批量排序和桥接操作。启用紧急状态的目的是让Polygon团队能够解决健全性漏洞或利用任何智能合约漏洞的案例。它是一种用于保护L2用户资产的安全措施。
+紧急状态是一个共识合约状态（“PolygonZkEVM.sol”和“PolygonZkEVMBridge.sol”），当它被激活时，会终止批次排序和桥接操作。启用紧急状态的目的是让Polygon团队能够解决健全性漏洞或利用任何智能合约漏洞的案例。它是一种用于保护L2用户资产的安全措施。
 
 在紧急状态下，以下功能将被禁用:
 * sequenceBatches
@@ -917,7 +917,7 @@ Polygon团队以桥的形式为Polygon zkEVM L2网络创建了互操作性解决
 
 从用户的角度来看，在不改变原始资产的价值或功能的情况下将资产从一个网络转移到另一个网络的能力至关重要。此外，还支持跨链消息传递，允许在网络之间发送有效载荷。
 
-在Polygon zkEVM等L2 rollup中，L1智能合约确保正确管理L2状态转换和数据可用性。因此，通过适当的L2架构设计，Bridg智能合约（SC）的两端可以完全通过智能合约的逻辑进行同步。
+在Polygon zkEVM等L2 rollup中，L1智能合约确保正确管理L2状态转换和数据可用性。因此，通过适当的L2架构设计，Bridg智能合约的两端可以完全通过智能合约的逻辑进行同步。
 
 #### zkEVM桥架构
 
@@ -925,24 +925,24 @@ Polygon团队以桥的形式为Polygon zkEVM L2网络创建了互操作性解决
 
 ![polygon zkevm schema](assets/04004-polygon-zkevm-schema.png)
 
-考虑两个网络：L1和L2。为了在L1和L2之间桥接资产，用户必须将资产锁定在源网络（或L1）中。Bridge智能合约然后在目标网络L2中铸造等值的代表资产。这种铸造的资产被称为Wrapped Token。铸造完成后，资产可以由目标网络（L2）中的用户或接收者认领。也可以执行相反的操作。即烧毁Wrapped Token后，Bridge SC解锁源网中的原始资产。如前所述，存在第三个通道的可能性，其中Bridge SC用于跨链消息传递。也就是说，可以使用 Bridge SC 的Bridge和Claim操作将数据有效载荷从一个网络发送到另一个网络。
+考虑两个网络：L1和L2。为了在L1和L2之间桥接资产，用户必须将资产锁定在源网络（或L1）中。Bridge智能合约然后在目标网络L2中铸造等值的代表资产。这种铸造的资产被称为Wrapped Token。铸造完成后，资产可以由目标网络（L2）中的用户或接收者认领。也可以执行相反的操作。即烧毁Wrapped Token后，Bridge智能合约解锁源网中的原始资产。如前所述，存在第三个通道的可能性，其中Bridge智能合约用于跨链消息传递。也就是说，可以使用Bridge智能合约的Bridge和Claim操作将数据有效载荷从一个网络发送到另一个网络。
 
 #### 与以太坊2.0存款合约对比
 
-zkEVM Bridge SC的实现基于以太坊2.0存款合约，除了一些改动。例如，虽然它使用专门设计的仅附加的默克尔树，但它采用与以太坊2.0存款合约相同的逻辑。其他差异与基本哈希和叶节点有关。首先，存款合约使用SHA256，而zkEVM使用Keccak哈希函数。这一切都是因为，除了与EVM兼容之外，Keccak哈希函数在以太坊gas费用方面更便宜。其次，Bridge SC在第一次将新令牌添加到zkEVM网络时生成包装令牌。此外，将ERC20代币的元数据，例如名称、小数点或符号添加到叶中包含的信息中。因此，如本文件所述，每次转账都受到智能合约的保护。
+zkEVM Bridge智能合约的实现基于以太坊2.0存款合约，除了一些改动。例如，虽然它使用专门设计的仅附加的默克尔树，但它采用与以太坊2.0存款合约相同的逻辑。其他差异与基本哈希和叶节点有关。首先，存款合约使用SHA256，而zkEVM使用Keccak哈希函数。这一切都是因为，除了与EVM兼容之外，Keccak哈希函数在以太坊gas费用方面更便宜。其次，Bridge智能合约在第一次将新令牌添加到zkEVM网络时生成包装令牌。此外，将ERC20代币的元数据，例如名称、小数点或符号添加到叶中包含的信息中。因此，如本文件所述，每次转账都受到智能合约的保护。
 
 #### 特征
 
-Polygon zkEVM Bridge智能合约的主要特点是使用退出树和全局退出树，全局退出树根作为状态真相的主要来源。为L1和L2使用两个不同的全局出口根管理器，以及为Bridge SC和每个全局出口根管理器使用单独的逻辑，允许广泛的网络互操作性。
+Polygon zkEVM Bridge智能合约的主要特点是使用Exit Tree和Global，Global Exit Tree Root作为状态真相的主要来源。为L1和L2使用两个不同的Global Exit Root管理器，以及为Bridge智能合约和每个Global Exit Root管理器使用单独的逻辑，允许广泛的网络互操作性。
 同时，由于数据可用性，所有资产转移都可以通过任何L1和L2节点进行验证。
 以下部分解释了Polygon zkEVM Bridge相关智能合约如何确保zkEVM和任何网络之间传输的资产的安全性。
 
-### 退出树
+### Exit Tree
 
-#### 退出树和全局退出树
+#### Exit Tree和Global Exit Tree
 
-zkEVM的Bridge SC为参与通信或资产交换的每个网络使用一种称为退出树的特殊Merkle树。
-zkEVM的Bridge SC为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
+zkEVM的Bridge智能合约为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
+zkEVM的Bridge智能合约为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
 术语Exit Tree是指添加了特性的稀疏默克尔树（SMT），它的叶子节点记录有关资产被转移出网络的信息。Polygon zkEVM使用深度为32的Exit Tree。
 从现在开始，Exit Tree的叶子被称为出口叶子。出口叶子分为两种类型：类型0用于记录资产信息和类型1用于记录消息传递信息。
 
@@ -955,7 +955,7 @@ zkEVM的Bridge SC为参与通信或资产交换的每个网络使用一种称为
 * uint256 amount: 桥接的代币/以太币数量
 * bytes32 metadataHash: 元数据的哈希，元数据将包含有关资产转移或消息有效负载的信息
 
-当用户承诺将资产从一个网络转移到另一个网络时，Bridge SC必须向该网络的Exit Tree添加一个出口叶。
+当用户承诺将资产从一个网络转移到另一个网络时，Bridge智能合约必须向该网络的Exit Tree添加一个出口叶。
 Exit Tree的Merkleit Tree Root，它是 Exit Tree 的叶子节点中记录的所有信息的指纹。
 
 因此，给定任何网络出口树，无论是 L1 还是 L2，其出Exit Root都是该网络的状态真实来源。
@@ -1017,26 +1017,51 @@ Metadata: 0x116...
 
 ### 智能合约
 
-介绍三个智能合约如何实现资产转移：桥SC（PolygonZkEVMBridge.sol）、Global Exit Tree Root管理器（PolygonZkEVMGlobalExitRoot.sol）和共识合约（PolygonZkEVM.sol）。
+介绍三个智能合约如何实现资产转移：bridge智能合约（PolygonZkEVMBridge.sol）、Global Exit Tree Root管理器（PolygonZkEVMGlobalExitRoot.sol）和共识合约（PolygonZkEVM.sol）。
 
 #### 桥智能合约
 
 zkEVM Bridge智能合约（PolygonZkEVMBridge.sol）执行两个功能：Bridge（或存款）和Claim（或取款）功能。它支持将资产从一个网络桥接到另一个网络，以及声明在目标网络中收到的资产。
-一旦用户启动并承诺将资产从网络L2转移到L1，zkEVM Bridge SC就会向L2 Exit Tree添加出口叶。相应的传输数据包含在这样的出口叶中。之后，L2 Exit Tree的根被更新并可用于工作流中的下一个智能合约，即Global Exit Tree Root管理器 SC。
+一旦用户启动并承诺将资产从网络L2转移到L1，zkEVM Bridge智能合约就会向L2 Exit Tree添加出口叶。相应的传输数据包含在这样的出口叶中。之后，L2 Exit Tree的根被更新并可用于工作流中的下一个智能合约，即Global Exit Tree Root管理器智能合约。
 
 #### Global Exit Tree Root管理器合约
 
-Global Exit Tree Root管理器SC（PolygonZkEVMGlobalExitRoot.sol、PolygonZkEVMGlobalExitRootL2.sol）管理Global Exit Tree Root。它负责更新 Global Exit Tree Root并充当Global Exit Tree历史的存储库。
+Global Exit Tree Root管理器智能合约（PolygonZkEVMGlobalExitRoot.sol、PolygonZkEVMGlobalExitRootL2.sol）管理Global Exit Tree Root。它负责更新 Global Exit Tree Root并充当Global Exit Tree历史的存储库。
 
-zkEVM Bridge SC的逻辑已与Global Exit Root 管理器SC的逻辑分离，以实现改进的互操作性。这意味着zkEVM Bridge SC与 Global Exit Root 管理器SC一起可以安装在任何网络中以达到相同的效果。
+zkEVM Bridge智能合约的逻辑已与Global Exit Root 管理器智能合约的逻辑分离，以实现改进的互操作性。这意味着zkEVM Bridge智能合约与 Global Exit Root 管理器智能合约一起可以安装在任何网络中以达到相同的效果。
 
 #### 共识合约
 
 智能合约**PolygonZkEVM.sol**是Polygon zkEVM中使用的共识算法。
 
-**PolygonZkEVM.sol** SC位于L1以帮助进行批量验证。一旦对交易批次进行排序，就会向聚合器发出请求以证明排序批次的有效性。该证明是零知识证明，使用**Verifier.sol**合约进行验证。
+**PolygonZkEVM.sol**智能合约位于L1以帮助进行批次验证。一旦对交易批次进行排序，就会向聚合器发出请求以证明排序批次的有效性。该证明是零知识证明，使用**Verifier.sol**合约进行验证。
 
-在ZK-proof验证后，共识SC将zkEVM Exit Tree Root发送给Global Exit Root管理器SC、**PolygonZkEVMGlobalExitRoot.sol** SC，用于更新Global Exit Root。
+在ZK-proof验证后，共识智能合约将zkEVM Exit Tree Root发送给Global Exit Root管理器智能合约、**PolygonZkEVMGlobalExitRoot.sol** 智能合约，用于更新Global Exit Root。
+
+#### zkEVM智能合约交互
+
+下图展示了三个桥接相关的智能合约在桥接资产和认领资产时的交互。智能合约的交互在以下小节中描述。
+
+![overall interact bridge scs](assets/04007-overall-interact-bridge-scs.png)
+
+##### L1 → zkEVM传输
+
+1. 每当用户承诺转移资产时，Bridge智能合约**PolygonZkEVMBridge.sol**使用该Bridge方法将相应的出口叶子附加到L1出口树。
+2. 更新L1 Exit Tree的根被发送到Global Exit Tree Root管理器**PolygonZkEVMGlobalExitRoot.sol**以更新Global Exit Root。
+3. 共识智能合约PolygonZkEVM.sol从Global Exit Root管理器中检索更新的Global Exit Root，用于与作为桥接资产目标网络的zkEVM同步。
+
+从L1到zkEVM的传输是用Bridge智能合约的Claim方法完成的，不过这次是在zkEVM端。
+
+##### zkEVM → L1传输
+现在是相反的过程，只关注 L1 智能合约。
+
+共识 SC 使用该SequenceBatches功能对批次进行排序，其中包括资产转移信息等交易。
+
+一个名为的特殊智能合约Verify.sol调用该VerifyBatches函数并将Batch Info作为输入。作为共识过程的一部分，但未在上图中显示，聚合器为排序的批次生成有效性证明。并且这个证明在这一步自动被验证。
+
+zkEVM 出口树仅在成功验证已排序的批次后才会更新（同样，为简单起见，上图中未反映这一点）。Consensus SC ( PolygonZkEVM.sol) 将更新后的 zkEVM Exit Root 发送到 Global Exit Root Manager，后者随后更新 Global Exit Root。
+
+zkEVM Bridge SC ( PolygonZkEVMBridge.sol) 然后检索更新的全局出口根并使用该Claim函数完成传输。
 
 =========================================================================================================================================
 

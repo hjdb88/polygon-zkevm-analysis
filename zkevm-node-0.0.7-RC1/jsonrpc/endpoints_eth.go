@@ -786,6 +786,9 @@ func (e *EthEndpoints) newPendingTransactionFilter(wsConn *websocket.Conn) (inte
 // SendRawTransaction has two different ways to handle new transactions:
 // - for Sequencer nodes it tries to add the tx to the pool
 // - for Non-Sequencer nodes it relays the Tx to the Sequencer node
+// SendRawTransaction 有两种不同的方式来处理新的事务：
+// - 对于 Sequencer 节点，它尝试将 tx 添加到池中
+// - 对于 Non-Sequencer 节点，它将 Tx 中继到 Sequencer 节点
 func (e *EthEndpoints) SendRawTransaction(httpRequest *http.Request, input string) (interface{}, types.Error) {
 	if e.cfg.SequencerNodeURI != "" {
 		return e.relayTxToSequencerNode(input)

@@ -432,6 +432,7 @@ void FullTracer::onStoreLog (Context &ctx, const RomCommand &cmd)
 }
 
 // Triggered at the very beginning of transaction process
+// 在交易过程的最开始时触发
 void FullTracer::onProcessTx(Context &ctx, const RomCommand &cmd)
 {
 #ifdef LOG_TIME_STATISTICS
