@@ -27,6 +27,7 @@ const (
 func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) {
 	retry := false
 	// process monitored sequences before starting a next cycle
+	// 在开始下一个循环之前处理监控序列
 	s.ethTxManager.ProcessPendingMonitoredTxs(ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
 		if result.Status == ethtxmanager.MonitoredTxStatusFailed {
 			retry = true
@@ -40,6 +41,7 @@ func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) 
 	}
 
 	// Check if synchronizer is up to date
+	// 检查同步器是否是最新的
 	if !s.isSynced(ctx) {
 		log.Info("wait for synchronizer to sync last batch")
 		waitTick(ctx, ticker)
@@ -47,6 +49,7 @@ func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) 
 	}
 
 	// Check if should send sequence to L1
+	// 检查是否应该将序列发送到L1
 	log.Infof("getting sequences to send")
 	sequences, err := s.getSequencesToSend(ctx)
 	if err != nil || len(sequences) == 0 {
@@ -74,6 +77,7 @@ func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) 
 	metrics.SequencesSentToL1(float64(sequenceCount))
 
 	// add sequence to be monitored
+	// 添加要监视的序列
 	sender := common.HexToAddress(s.cfg.Finalizer.SenderAddress)
 	to, data, err := s.etherman.BuildSequenceBatchesTxData(sender, sequences)
 	if err != nil {
@@ -93,6 +97,7 @@ func (s *Sequencer) tryToSendSequence(ctx context.Context, ticker *time.Ticker) 
 // getSequencesToSend generates an array of sequences to be send to L1.
 // If the array is empty, it doesn't necessarily mean that there are no sequences to be sent,
 // it could be that it's not worth it to do so yet.
+// 生成要发送到L1的序列数组。如果数组为空，并不一定意味着没有要发送的序列，可能是不值得这样做。
 func (s *Sequencer) getSequencesToSend(ctx context.Context) ([]types.Sequence, error) {
 	lastVirtualBatchNum, err := s.state.GetLastVirtualBatchNum(ctx, nil)
 	if err != nil {

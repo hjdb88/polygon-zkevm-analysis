@@ -112,6 +112,7 @@ func newFinalizer(
 }
 
 // Start starts the finalizer.
+// 启动终结器
 func (f *finalizer) Start(ctx context.Context, batch *WipBatch, processingReq *state.ProcessRequest) {
 	var err error
 	if batch != nil {
@@ -130,9 +131,11 @@ func (f *finalizer) Start(ctx context.Context, batch *WipBatch, processingReq *s
 	}
 
 	// Closing signals receiver
+	// 关闭信号接收器
 	go f.listenForClosingSignals(ctx)
 
 	// Processing transactions and finalizing batches
+	// 处理交易并完成批次
 	f.finalizeBatches(ctx)
 }
 
@@ -153,6 +156,7 @@ func (f *finalizer) SortForcedBatches(fb []state.ForcedBatch) []state.ForcedBatc
 }
 
 // listenForClosingSignals listens for signals for the batch and sets the deadline for when they need to be closed.
+// 侦听批处理的信号并设置需要关闭它们的截止日期
 func (f *finalizer) listenForClosingSignals(ctx context.Context) {
 	for {
 		select {
@@ -196,10 +200,12 @@ func (f *finalizer) listenForClosingSignals(ctx context.Context) {
 }
 
 // finalizeBatches runs the endless loop for processing transactions finalizing batches.
+// 运行无限循环来处理交易最终批次
 func (f *finalizer) finalizeBatches(ctx context.Context) {
 	for {
 		start := now()
 		log.Debug("finalizer init loop")
+		// 获取适合可用批次资源的最高效tx
 		tx := f.worker.GetBestFittingTx(f.batch.remainingResources)
 		metrics.WorkerProcessingTime(time.Since(start))
 		if tx != nil {
@@ -220,10 +226,14 @@ func (f *finalizer) finalizeBatches(ctx context.Context) {
 		}
 
 		if f.isDeadlineEncountered() {
+			// 遇到任何关闭信号的最后期限
 			log.Infof("Closing batch: %d, because deadline was encountered.", f.batch.batchNumber)
+			// 重试直到成功关闭当前批次并打开一个新批次，可能会在批次关闭和生成的新空批次之间处理强制批次
 			f.finalizeBatch(ctx)
 		} else if f.isBatchFull() || f.isBatchAlmostFull() {
+			// 批次交易数量已满或者当前批次剩余资源在最有效时刻关闭批的约束阈值范围内
 			log.Infof("Closing batch: %d, because it's almost full.", f.batch.batchNumber)
+			// 重试直到成功关闭当前批次并打开一个新批次，可能会在批次关闭和生成的新空批次之间处理强制批次
 			f.finalizeBatch(ctx)
 		}
 
@@ -243,6 +253,7 @@ func (f *finalizer) isBatchFull() bool {
 }
 
 // finalizeBatch retries to until successful closes the current batch and opens a new one, potentially processing forced batches between the batch is closed and the resulting new empty batch
+// 重试直到成功关闭当前批次并打开一个新批次，可能会在批次关闭和生成的新空批次之间处理强制批次
 func (f *finalizer) finalizeBatch(ctx context.Context) {
 	start := time.Now()
 	defer func() {
@@ -399,6 +410,7 @@ func (f *finalizer) processTransaction(ctx context.Context, tx *TxTracker) error
 	}
 
 	// Update in-memory batch and processRequest
+	// 更新内存中的批处理和 processRequest
 	f.processRequest.OldStateRoot = result.NewStateRoot
 	f.batch.stateRoot = result.NewStateRoot
 	f.batch.localExitRoot = result.NewLocalExitRoot
@@ -408,20 +420,23 @@ func (f *finalizer) processTransaction(ctx context.Context, tx *TxTracker) error
 }
 
 // handleTxProcessResp handles the response of a successful transaction processing.
+// 处理成功交易的响应
 func (f *finalizer) handleTxProcessResp(ctx context.Context, tx *TxTracker, result *state.ProcessBatchResponse, oldStateRoot common.Hash) error {
 	// Handle Transaction Error
+	// 处理交易错误
 	if result.Responses[0].RomError != nil && !errors.Is(result.Responses[0].RomError, runtime.ErrExecutionReverted) {
 		f.handleTransactionError(ctx, result, tx)
 		return result.Responses[0].RomError
 	}
 
 	// Check remaining resources
+	// 检查剩余资源
 	err := f.checkRemainingResources(ctx, result, tx)
 	if err != nil {
 		return err
 	}
 
-	// Store the processed transaction, add it to the batch and update status in the pool atomically
+	// 存储已处理的交易，将其添加到批处理中并以原子方式更新池中的状态
 	f.storeProcessedTx(ctx, oldStateRoot, tx, result)
 
 	return nil
@@ -441,6 +456,7 @@ func (f *finalizer) storeProcessedTx(ctx context.Context, previousL2BlockStateRo
 	}
 
 	// Delete the transaction from the efficiency list
+	// 从效率列表中删除交易
 	f.worker.DeleteTx(tx.Hash, tx.From)
 	log.Debug("tx deleted from efficiency list", "txHash", tx.Hash.String(), "from", tx.From.Hex())
 
@@ -799,6 +815,7 @@ func (f *finalizer) getOldStateRootFromBatches(batches []*state.Batch) common.Ha
 }
 
 // isDeadlineEncountered returns true if any closing signal deadline is encountered
+// 如果遇到任何关闭信号最后期限返回true
 func (f *finalizer) isDeadlineEncountered() bool {
 	// Forced batch deadline
 	if f.nextForcedBatchDeadline != 0 && now().Unix() >= f.nextForcedBatchDeadline {
@@ -822,6 +839,7 @@ func (f *finalizer) isDeadlineEncountered() bool {
 }
 
 // checkRemainingResources checks if the transaction uses less resources than the remaining ones in the batch.
+// 检查交易使用的资源是否少于批处理中的剩余资源
 func (f *finalizer) checkRemainingResources(ctx context.Context, result *state.ProcessBatchResponse, tx *TxTracker) error {
 	usedResources := batchResources{
 		zKCounters: result.UsedZkCounters,
@@ -841,6 +859,7 @@ func (f *finalizer) checkRemainingResources(ctx context.Context, result *state.P
 }
 
 // isBatchAlmostFull checks if the current batch remaining resources are under the constraints threshold for most efficient moment to close a batch
+// 检查当前批次剩余资源是否在最有效时刻关闭批的约束阈值范围内
 func (f *finalizer) isBatchAlmostFull() bool {
 	resources := f.batch.remainingResources
 	zkCounters := resources.zKCounters

@@ -105,6 +105,7 @@ func New(cfg Config, txPool txPool, state stateInterface, etherman etherman, man
 // Start starts the sequencer
 // 启动定序器
 func (s *Sequencer) Start(ctx context.Context) {
+
 	for !s.isSynced(ctx) {
 		log.Infof("waiting for synchronizer to sync...")
 		time.Sleep(s.cfg.WaitPeriodPoolIsEmpty.Duration)
@@ -171,11 +172,13 @@ func (s *Sequencer) Start(ctx context.Context) {
 
 	go func() {
 		for {
+			// 尝试发送批次
 			s.tryToSendSequence(ctx, tickerSendSequence)
 		}
 	}()
 
 	// Expire too old txs in the worker
+	// 将worker中太旧的txs过期
 	go func() {
 		for {
 			time.Sleep(s.cfg.TxLifetimeCheckTimeout.Duration)

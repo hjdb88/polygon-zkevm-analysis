@@ -53,15 +53,18 @@ func newDBManager(ctx context.Context, config DBManagerCfg, txPool txPool, state
 }
 
 // Start stars the dbManager routines
+// 启动dbManager协程
 func (d *dbManager) Start() {
 	go d.loadFromPool()
 	go func() {
 		for {
 			// TODO: Move this to a config parameter
 			time.Sleep(wait * time.Second)
+			// 检查是否发生重组
 			d.checkIfReorg()
 		}
 	}()
+	// 将tx存储到状态中并更改它在池中的状态
 	go d.storeProcessedTxAndDeleteFromPool()
 }
 
@@ -107,6 +110,7 @@ func (d *dbManager) CreateFirstBatch(ctx context.Context, sequencerAddress commo
 }
 
 // checkIfReorg checks if a reorg has happened
+// 检查是否发生重组
 func (d *dbManager) checkIfReorg() {
 	numberOfReorgs, err := d.state.CountReorgs(d.ctx, nil)
 	if err != nil {
@@ -120,6 +124,7 @@ func (d *dbManager) checkIfReorg() {
 }
 
 // loadFromPool keeps loading transactions from the pool
+// 不断从池中加载交易
 func (d *dbManager) loadFromPool() {
 	for {
 		time.Sleep(d.cfg.PoolRetrievalInterval.Duration)
@@ -165,6 +170,7 @@ func (d *dbManager) BeginStateTransaction(ctx context.Context) (pgx.Tx, error) {
 }
 
 // StoreProcessedTransaction stores a transaction in the state
+// 在状态中存储一笔交易
 func (d *dbManager) StoreProcessedTransaction(ctx context.Context, batchNumber uint64, processedTx *state.ProcessTransactionResponse, coinbase common.Address, timestamp uint64, dbTx pgx.Tx) error {
 	return d.state.StoreTransaction(ctx, batchNumber, processedTx, coinbase, timestamp, dbTx)
 }
@@ -175,13 +181,16 @@ func (d *dbManager) DeleteTransactionFromPool(ctx context.Context, txHash common
 }
 
 // storeProcessedTxAndDeleteFromPool stores a tx into the state and changes it status in the pool
+// 将tx存储到状态中并更改它在池中的状态
 func (d *dbManager) storeProcessedTxAndDeleteFromPool() {
 	// TODO: Finish the retry mechanism and error handling
 	for {
 		txToStore := <-d.txsStore.Ch
+		// 检查是否发生重组
 		d.checkIfReorg()
 
 		// Flush the state db
+		// 刷新状态数据库
 		err := d.state.FlushMerkleTree(d.ctx)
 		if err != nil {
 			log.Fatalf("StoreProcessedTxAndDeleteFromPool. Error flushing state db: %v", err)
@@ -199,6 +208,7 @@ func (d *dbManager) storeProcessedTxAndDeleteFromPool() {
 		}
 
 		// Update batch l2 data
+		// 更新批次L2数据
 		batch, err := d.state.GetBatchByNumber(d.ctx, txToStore.batchNumber, dbTx)
 		if err != nil {
 			log.Fatalf("StoreProcessedTxAndDeleteFromPool: %v", err)
@@ -221,6 +231,7 @@ func (d *dbManager) storeProcessedTxAndDeleteFromPool() {
 		}
 
 		// Change Tx status to selected
+		// 将交易池中对应交易状态更改为选中
 		err = d.txPool.UpdateTxStatus(d.ctx, txToStore.txResponse.TxHash, pool.TxStatusSelected, false)
 		if err != nil {
 			log.Fatalf("StoreProcessedTxAndDeleteFromPool: %v", err)

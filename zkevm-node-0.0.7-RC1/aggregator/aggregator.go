@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jackc/pgx/v4"
 	"math/big"
 	"net"
 	"strconv"
@@ -23,7 +24,6 @@ import (
 	"github.com/0xPolygonHermez/zkevm-node/log"
 	"github.com/0xPolygonHermez/zkevm-node/state"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jackc/pgx/v4"
 	"google.golang.org/grpc"
 	grpchealth "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/peer"
@@ -112,11 +112,13 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	metrics.Register()
 
 	// process monitored batch verifications before starting
+	// 开始前处理监控批次验证
 	a.EthTxManager.ProcessPendingMonitoredTxs(ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
 		a.handleMonitoredTxResult(result)
 	}, nil)
 
 	// Delete ungenerated recursive proofs
+	// 删除未生成的递归证明
 	err := a.State.DeleteUngeneratedProofs(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to initialize proofs cache %w", err)
@@ -218,11 +220,13 @@ func (a *Aggregator) Channel(stream pb.AggregatorService_ChannelServer) error {
 				log.Errorf("Error checking proofs to verify: %v", err)
 			}
 
+			// 尝试聚合证明
 			proofGenerated, err := a.tryAggregateProofs(ctx, prover)
 			if err != nil {
 				log.Errorf("Error trying to aggregate proofs: %v", err)
 			}
 			if !proofGenerated {
+				// 尝试生成批次证明
 				proofGenerated, err = a.tryGenerateBatchProof(ctx, prover)
 				if err != nil {
 					log.Errorf("Error trying to generate proof: %v", err)
@@ -260,6 +264,7 @@ func (a *Aggregator) sendFinalProof() {
 
 			a.startProofVerification()
 
+			// 获取给定编号的批次
 			finalBatch, err := a.State.GetBatchByNumber(ctx, proof.BatchNumberFinal, nil)
 			if err != nil {
 				log.Errorf("Failed to retrieve batch with number [%d]: %v", proof.BatchNumberFinal, err)
@@ -294,6 +299,7 @@ func (a *Aggregator) sendFinalProof() {
 			}
 
 			// process monitored batch verifications before starting a next cycle
+			// 在开始下一个周期之前处理受监控的批次验证
 			a.EthTxManager.ProcessPendingMonitoredTxs(ctx, ethTxManagerOwner, func(result ethtxmanager.MonitoredTxResult, dbTx pgx.Tx) {
 				a.handleMonitoredTxResult(result)
 			}, nil)
@@ -315,6 +321,7 @@ func (a *Aggregator) handleFailureToAddVerifyBatchToBeMonitored(ctx context.Cont
 }
 
 // buildFinalProof builds and return the final proof for an aggregated/batch proof.
+// 构建并返回聚合批证明的最终证明
 func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface, proof *state.Proof) (*pb.FinalProof, error) {
 	log := log.WithFields(
 		"prover", prover.Name(),
@@ -325,6 +332,7 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 	)
 	log.Info("Generating final proof")
 
+	// 指示证明者为给定的输入生成最终证明。它返回正在计算的证明的 ID。
 	finalProofID, err := prover.FinalProof(proof.Proof, a.cfg.SenderAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get final proof id: %w", err)
@@ -334,6 +342,7 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 	log.Infof("Final proof ID for batches [%d-%d]: %s", proof.BatchNumber, proof.BatchNumberFinal, *proof.ProofID)
 	log = log.WithFields("finalProofId", finalProofID)
 
+	// 等待证明者生成证明并返回证明者响应
 	finalProof, err := prover.WaitFinalProof(ctx, *proof.ProofID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get final proof from prover: %w", err)
@@ -401,6 +410,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	if proof == nil {
 		// we don't have a proof generating at the moment, check if we
 		// have a proof ready to verify
+		// 我们目前没有生成证明，请检查我们是否有准备好验证的证明
 
 		proof, err = a.getAndLockProofReadyToVerify(ctx, prover, lastVerifiedBatchNum)
 		if errors.Is(err, state.ErrNotFound) {
@@ -465,6 +475,7 @@ func (a *Aggregator) tryBuildFinalProof(ctx context.Context, prover proverInterf
 	return true, nil
 }
 
+// validateEligibleFinalProof 验证最终证明是否合格
 func (a *Aggregator) validateEligibleFinalProof(ctx context.Context, proof *state.Proof, lastVerifiedBatchNum uint64) (bool, error) {
 	batchNumberToVerify := lastVerifiedBatchNum + 1
 
@@ -597,6 +608,7 @@ func (a *Aggregator) getAndLockProofsToAggregate(ctx context.Context, prover pro
 	return proof1, proof2, nil
 }
 
+// tryAggregateProofs 尝试聚合证明
 func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterface) (bool, error) {
 	proverName := prover.Name()
 	proverID := prover.ID()
@@ -657,6 +669,7 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 		InputProver:      string(b),
 	}
 
+	// 指示证明者从提供的两个输入生成聚合证明。它返回正在计算的证明的ID
 	aggrProofID, err = prover.AggregatedProof(proof1.Proof, proof2.Proof)
 	if err != nil {
 		err = fmt.Errorf("failed to get aggregated proof id, %w", err)
@@ -669,6 +682,7 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 	log.Infof("Proof ID for aggregated proof: %v", *proof.ProofID)
 	log = log.WithFields("proofId", *proof.ProofID)
 
+	// 等待证明者生成递归证明并将其返回
 	recursiveProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
 	if err != nil {
 		err = fmt.Errorf("failed to get aggregated proof from prover, %w", err)
@@ -682,6 +696,7 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 
 	// update the state by removing the 2 aggregated proofs and storing the
 	// newly generated recursive proof
+	// 通过删除2个聚合证明并存储新生成的递归证明来更新状态
 	dbTx, err := a.State.BeginStateTransaction(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to begin transaction to update proof aggregation state, %w", err)
@@ -728,6 +743,7 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 
 	// state is up to date, check if we can send the final proof using the
 	// one just crafted.
+	// 状态是最新的，请检查我们是否可以使用刚制作的证明发送最终证明
 	finalProofBuilt, finalProofErr := a.tryBuildFinalProof(ctx, prover, proof)
 	if finalProofErr != nil {
 		// just log the error and continue to handle the aggregated proof
@@ -735,11 +751,13 @@ func (a *Aggregator) tryAggregateProofs(ctx context.Context, prover proverInterf
 	}
 
 	// NOTE(pg): prover is done, use a.ctx from now on
+	// 证明已经完成，从现在开始使用 a.ctx
 
 	if !finalProofBuilt {
 		proof.GeneratingSince = nil
 
 		// final proof has not been generated, update the recursive proof
+		// 最终证明还没有生成，更新递归证明
 		err := a.State.UpdateGeneratedProof(a.ctx, proof, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to store batch proof result, %w", err)
@@ -811,6 +829,7 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 	return batchToVerify, proof, nil
 }
 
+// tryGenerateBatchProof 尝试生成批次证明
 func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInterface) (bool, error) {
 	log := log.WithFields(
 		"prover", prover.Name(),
@@ -868,6 +887,7 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log.Infof("Sending a batch to the prover. OldStateRoot [%#x], OldBatchNum [%d]",
 		inputProver.PublicInputs.OldStateRoot, inputProver.PublicInputs.OldBatchNum)
 
+	// 指示证明者为提供的输入生成批量证明。它返回正在计算的证明的ID
 	genProofID, err = prover.BatchProof(inputProver)
 	if err != nil {
 		err = fmt.Errorf("failed to get batch proof id, %w", err)
@@ -880,6 +900,7 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	log.Infof("Proof ID %v", *proof.ProofID)
 	log = log.WithFields("proofId", *proof.ProofID)
 
+	// 等待证明者生成递归证明并将其返回
 	resGetProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
 	if err != nil {
 		err = fmt.Errorf("failed to get proof from prover, %w", err)
@@ -906,6 +927,7 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 		proof.GeneratingSince = nil
 
 		// final proof has not been generated, update the batch proof
+		// 最终证明还没有生成，更新批量证明
 		err := a.State.UpdateGeneratedProof(a.ctx, proof, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to store batch proof result, %w", err)
@@ -926,6 +948,7 @@ func (a *Aggregator) canVerifyProof() bool {
 }
 
 // startProofVerification sets to true the verifyingProof variable to indicate that there is a proof verification in progress
+// 将 verifyingProof 变量设置为 true 表示正在进行证明验证
 func (a *Aggregator) startProofVerification() {
 	a.TimeSendFinalProofMutex.Lock()
 	defer a.TimeSendFinalProofMutex.Unlock()
@@ -933,6 +956,7 @@ func (a *Aggregator) startProofVerification() {
 }
 
 // endProofVerification set verifyingProof to false to indicate that there is not proof verification in progress
+// 将 verifyingProof 变量设置为 false 表示没有正在进行的证明验证
 func (a *Aggregator) endProofVerification() {
 	a.TimeSendFinalProofMutex.Lock()
 	defer a.TimeSendFinalProofMutex.Unlock()
@@ -940,6 +964,7 @@ func (a *Aggregator) endProofVerification() {
 }
 
 // resetVerifyProofTime updates the timeout to verify a proof.
+// 更新超时以验证证明
 func (a *Aggregator) resetVerifyProofTime() {
 	a.TimeSendFinalProofMutex.Lock()
 	defer a.TimeSendFinalProofMutex.Unlock()
@@ -1064,6 +1089,7 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 	log.Info("Final proof verified")
 
 	// wait for the synchronizer to catch up the verified batches
+	// 等待同步器赶上已验证的批次
 	log.Debug("A final proof has been sent, waiting for the network to be synced")
 	for !a.isSynced(a.ctx, &proofBatchNumberFinal) {
 		log.Info("Waiting for synchronizer to sync...")
@@ -1072,6 +1098,7 @@ func (a *Aggregator) handleMonitoredTxResult(result ethtxmanager.MonitoredTxResu
 
 	// network is synced with the final proof, we can safely delete all recursive
 	// proofs up to the last synced batch
+	// 网络与最终证明同步，我们可以安全地删除直到最后同步批次的所有递归证明
 	err = a.State.CleanupGeneratedProofs(a.ctx, proofBatchNumberFinal, nil)
 	if err != nil {
 		log.Errorf("Failed to store proof aggregation result: %v", err)

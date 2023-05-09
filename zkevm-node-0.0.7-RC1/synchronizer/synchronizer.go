@@ -68,9 +68,11 @@ var waitDuration = time.Duration(0)
 
 // Sync function will read the last state synced and will continue from that point.
 // Sync() will read blockchain events to detect rollup updates
+// 同步功能将读取上次同步的状态，并从该点继续。Sync()将读取区块链事件以检测汇总更新
 func (s *ClientSynchronizer) Sync() error {
 	// If there is no lastEthereumBlock means that sync from the beginning is necessary. If not, it continues from the retrieved ethereum block
 	// Get the latest synced block. If there is no block on db, use genesis block
+	// 如果没有 lastEthereumBlock 意味着需要从头开始同步。如果不是，则继续从检索到的以太坊块获取最新的同步块。如果数据库上没有块，使用创世块
 	log.Info("Sync started")
 	dbTx, err := s.state.BeginStateTransaction(s.ctx)
 	if err != nil {
@@ -79,6 +81,7 @@ func (s *ClientSynchronizer) Sync() error {
 	lastEthBlockSynced, err := s.state.GetLastBlock(s.ctx, dbTx)
 	if err != nil {
 		if errors.Is(err, state.ErrStateNotSynchronized) {
+			// 使用创世块
 			log.Info("State is empty, verifying genesis block")
 			valid, err := s.etherMan.VerifyGenBlockNumber(s.ctx, s.cfg.GenBlockNumber)
 			if err != nil {
@@ -163,8 +166,10 @@ func (s *ClientSynchronizer) Sync() error {
 }
 
 // This function syncs the node from a specific block to the latest
+// 此方法将节点从特定区块同步到最新
 func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state.Block, error) {
 	// This function will read events fromBlockNum to latestEthBlock. Check reorg to be sure that everything is ok.
+	// 该函数将从 fromBlockNum 到 latestEthBlock 读取事件。检查重组以确保一切正常
 	block, err := s.checkReorg(lastEthBlockSynced)
 	if err != nil {
 		log.Errorf("error checking reorgs. Retrying... Err: %v", err)
@@ -180,6 +185,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 	}
 
 	// Call the blockchain to retrieve data
+	// 调用以太坊区块链检索数据
 	header, err := s.etherMan.HeaderByNumber(s.ctx, nil)
 	if err != nil {
 		return lastEthBlockSynced, err
@@ -200,6 +206,11 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 		// Name can be defferent in the order struct. For instance: Batches or Name:NewSequencers. This name is an identifier to check
 		// if the next info that must be stored in the db is a new sequencer or a batch. The value pos (position) tells what is the
 		// array index where this value is.
+		// 此函数返回包含在以太坊块中的汇总信息和一个名为 order 的额外参数。
+		// Order 参数是一个包含事件顺序的映射，以允许同步器以与读取的顺序相同的顺序存储信息。
+		// 名称在顺序结构中可以不同。例如：批次或名称：NewSequencers。
+		// 此名称是一个标识符，用于检查必须存储在数据库中的下一个信息是新的排序器还是批次。
+		// 值 pos（位置）告诉这个值所在的数组索引是什么。
 		blocks, order, err := s.etherMan.GetRollupInfoByBlockRange(s.ctx, fromBlock, &toBlock)
 		if err != nil {
 			return lastEthBlockSynced, err
@@ -227,6 +238,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 		}
 		if len(blocks) == 0 { // If there is no events in the checked blocks range and lastKnownBlock > fromBlock.
 			// Store the latest block of the block range. Get block info and process the block
+			// 如果检查的块范围内没有事件并且 lastKnownBlock > fromBlock。存储块范围的最新块。获取区块信息并处理区块
 			fb, err := s.etherMan.EthBlockByNumber(s.ctx, toBlock)
 			if err != nil {
 				return lastEthBlockSynced, err
@@ -258,6 +270,7 @@ func (s *ClientSynchronizer) syncBlocks(lastEthBlockSynced *state.Block) (*state
 // syncTrustedState synchronizes information from the trusted sequencer
 // related to the trusted state when the node has all the information from
 // l1 synchronized
+// 当节点同步了来自L1的所有信息时，从与可信状态相关的可信定序器同步信息
 func (s *ClientSynchronizer) syncTrustedState(latestSyncedBatch uint64) error {
 	if s.isTrustedSequencer {
 		return nil
@@ -312,8 +325,10 @@ func (s *ClientSynchronizer) syncTrustedState(latestSyncedBatch uint64) error {
 	return nil
 }
 
+// processBlockRange 处理区块
 func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order map[common.Hash][]etherman.Order) error {
 	// New info has to be included into the db using the state
+	// 必须使用状态将新信息包含到数据库中
 	for i := range blocks {
 		// Begin db transaction
 		dbTx, err := s.state.BeginStateTransaction(s.ctx)
@@ -328,6 +343,7 @@ func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order ma
 			ReceivedAt:  blocks[i].ReceivedAt,
 		}
 		// Add block information
+		// 添加区块数据
 		err = s.state.AddBlock(s.ctx, &b, dbTx)
 		if err != nil {
 			log.Errorf("error storing block. BlockNumber: %d, error: %v", blocks[i].BlockNumber, err)
@@ -338,6 +354,7 @@ func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order ma
 			}
 			return err
 		}
+
 		for _, element := range order[blocks[i].BlockHash] {
 			switch element.Name {
 			case etherman.SequenceBatchesOrder:
@@ -387,6 +404,7 @@ func (s *ClientSynchronizer) processBlockRange(blocks []etherman.Block, order ma
 }
 
 // This function allows reset the state until an specific ethereum block
+// 此方法允许重置状态，直到特定的以太坊块
 func (s *ClientSynchronizer) resetState(blockNumber uint64) error {
 	log.Debug("Reverting synchronization to block: ", blockNumber)
 	dbTx, err := s.state.BeginStateTransaction(s.ctx)
@@ -394,6 +412,7 @@ func (s *ClientSynchronizer) resetState(blockNumber uint64) error {
 		log.Error("error starting a db transaction to reset the state. Error: ", err)
 		return err
 	}
+	// 重置，即删除blockNumber之后的区块数据
 	err = s.state.Reset(s.ctx, blockNumber, dbTx)
 	if err != nil {
 		rollbackErr := dbTx.Rollback(s.ctx)
@@ -404,6 +423,7 @@ func (s *ClientSynchronizer) resetState(blockNumber uint64) error {
 		log.Error("error resetting the state. Error: ", err)
 		return err
 	}
+	// 将提供的blockNumber直到最新blockNumber的所有受监控的 tx 更新到 Reorged 状态
 	err = s.ethTxManager.Reorg(s.ctx, blockNumber+1, dbTx)
 	if err != nil {
 		rollbackErr := dbTx.Rollback(s.ctx)
@@ -435,12 +455,18 @@ to compare it with the stored info. If hash and hash parent matches, then no reo
 If hash or hash parent don't match, reorg detected and the function will return the block until the sync process
 must be reverted. Then, check the previous ethereum block synced, get block info from the blockchain and check
 hash and has parent. This operation has to be done until a match is found.
+此函数将检查是否存在重组。
+作为输入参数，需要同步最后一个以太坊块。从区块链中检索块信息以将其与存储的信息进行比较。
+如果哈希或父哈希匹配，则不会检测到重组并返回 nil。如果哈希或父哈希不匹配，则检测到重组并且该函数将返回该块，直到同步过程恢复。
+然后，检查先前同步的以太坊块，从区块链获取块信息并检查哈希和父哈希。必须执行此操作，直到找到匹配为止。
 */
 func (s *ClientSynchronizer) checkReorg(latestBlock *state.Block) (*state.Block, error) {
 	// This function only needs to worry about reorgs if some of the reorganized blocks contained rollup info.
+	// 如果某些重组块包含汇总信息，则此功能只需要担心重组
 	latestEthBlockSynced := *latestBlock
 	var depth uint64
 	for {
+		// 依据blockNumber查询区块
 		block, err := s.etherMan.EthBlockByNumber(s.ctx, latestBlock.BlockNumber)
 		if err != nil {
 			log.Errorf("error getting latest block synced from blockchain. Block: %d, error: %v", latestBlock.BlockNumber, err)
@@ -453,6 +479,7 @@ func (s *ClientSynchronizer) checkReorg(latestBlock *state.Block) (*state.Block,
 			return nil, err
 		}
 		// Compare hashes
+		// 比较哈希
 		if (block.Hash() != latestBlock.BlockHash || block.ParentHash() != latestBlock.ParentHash) && latestBlock.BlockNumber > s.cfg.GenBlockNumber {
 			log.Debug("[checkReorg function] => latestBlockNumber: ", latestBlock.BlockNumber)
 			log.Debug("[checkReorg function] => latestBlockHash: ", latestBlock.BlockHash)
@@ -1086,6 +1113,7 @@ func (s *ClientSynchronizer) processTrustedBatch(trustedBatch *types.Batch, dbTx
 	}
 
 	// check if batch needs to be synchronized
+	// 检查批次是否需要同步
 	if batch != nil {
 		matchNumber := batch.BatchNumber == uint64(trustedBatch.Number)
 		matchGER := batch.GlobalExitRoot.String() == trustedBatch.GlobalExitRoot.String()
@@ -1107,6 +1135,7 @@ func (s *ClientSynchronizer) processTrustedBatch(trustedBatch *types.Batch, dbTx
 
 	log.Debugf("resetting trusted state from batch %v", trustedBatch.Number)
 	previousBatchNumber := trustedBatch.Number - 1
+	// 从数据库中删除编号大于给定批次的批次
 	if err := s.state.ResetTrustedState(s.ctx, uint64(previousBatchNumber), dbTx); err != nil {
 		log.Errorf("failed to reset trusted state", trustedBatch.Number)
 		return err
@@ -1119,6 +1148,7 @@ func (s *ClientSynchronizer) processTrustedBatch(trustedBatch *types.Batch, dbTx
 		Timestamp:      time.Unix(int64(trustedBatch.Timestamp), 0),
 		GlobalExitRoot: trustedBatch.GlobalExitRoot,
 	}
+	// 打开批次
 	if err := s.state.OpenBatch(s.ctx, processCtx, dbTx); err != nil {
 		log.Errorf("error opening batch %d", trustedBatch.Number)
 		return err
@@ -1126,6 +1156,7 @@ func (s *ClientSynchronizer) processTrustedBatch(trustedBatch *types.Batch, dbTx
 
 	log.Debugf("processing sequencer for batch %v", trustedBatch.Number)
 
+	// 由定序器用来将交易处理成一个开放的批次
 	processBatchResp, err := s.state.ProcessSequencerBatch(s.ctx, uint64(trustedBatch.Number), trustedBatchL2Data, state.SynchronizerCallerLabel, dbTx)
 	if err != nil {
 		log.Errorf("error processing sequencer batch for batch: %d", trustedBatch.Number)

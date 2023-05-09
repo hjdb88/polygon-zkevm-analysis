@@ -595,6 +595,7 @@ func (p *PostgresStorage) GetLastBatchNumberSeenOnEthereum(ctx context.Context, 
 }
 
 // GetBatchByNumber returns the batch with the given number.
+// 返回给定编号的批次
 func (p *PostgresStorage) GetBatchByNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (*Batch, error) {
 	const getBatchByNumberSQL = `
 		SELECT batch_num, global_exit_root, local_exit_root, acc_input_hash, state_root, timestamp, coinbase, raw_txs_data, forced_batch_num
@@ -2153,6 +2154,7 @@ func (p *PostgresStorage) UpdateGeneratedProof(ctx context.Context, proof *Proof
 
 // DeleteGeneratedProofs deletes from the storage the generated proofs falling
 // inside the batch numbers range.
+// 从存储中删除落在批号范围内的生成证明
 func (p *PostgresStorage) DeleteGeneratedProofs(ctx context.Context, batchNumber uint64, batchNumberFinal uint64, dbTx pgx.Tx) error {
 	const deleteGeneratedProofSQL = "DELETE FROM state.proof WHERE batch_num >= $1 AND batch_num_final <= $2"
 	e := p.getExecQuerier(dbTx)
@@ -2171,6 +2173,7 @@ func (p *PostgresStorage) CleanupGeneratedProofs(ctx context.Context, batchNumbe
 
 // CleanupLockedProofs deletes from the storage the proofs locked in generating
 // state for more than the provided threshold.
+// 从存储中删除锁定在生成状态并且超过设定阈值的证明
 func (p *PostgresStorage) CleanupLockedProofs(ctx context.Context, duration string, dbTx pgx.Tx) (int64, error) {
 	interval, err := toPostgresInterval(duration)
 	if err != nil {
@@ -2216,6 +2219,7 @@ func (p *PostgresStorage) GetLastClosedBatch(ctx context.Context, dbTx pgx.Tx) (
 }
 
 // UpdateBatchL2Data updates data tx data in a batch
+// 更新一个批次交易数据
 func (p *PostgresStorage) UpdateBatchL2Data(ctx context.Context, batchNumber uint64, batchL2Data []byte, dbTx pgx.Tx) error {
 	const updateL2DataSQL = "UPDATE state.batch SET raw_txs_data = $2 WHERE batch_num = $1"
 

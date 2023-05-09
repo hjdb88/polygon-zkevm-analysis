@@ -38,6 +38,7 @@ The diagram represents the main components of the software and how they interact
 - Permissionless Sequencer: *coming soon*
 - Etherman: abstraction that implements the needed methods to interact with the Ethereum network and the relevant smart contracts.
 - Synchronizer: Updates the `state` by fetching data from Ethereum through the `etherman`. If the node is not a `trusted sequencer` it also updates the state with the data fetched from the `rpc` of the `trusted sequencer`. It also detects and handles reorgs that can happen if the `trusted sequencer` sends different data in the rpc vs the sequences sent to L1 (trusted vs virtual state)
+- 同步器：通过 `etherman` 从以太坊获取数据来更新 `state`。如果节点不是“可信定序器”，它还会使用从“可信定序器”的“rpc”获取的数据更新状态。它还检测并处理重组，如果“可信排序器”在 rpc 中发送不同的数据与发送到 L1 的序列（可信与虚拟状态）
 - State: Responsible for managing the state data (batches, blocks, transactions, ...) that is stored on the `state SB`. It also handles the integration with the `executor` and the `Merkletree` service
 - State DB: persistence layer for the state data (except the Merkletree that is handled by the `Merkletree` service)
 - Aggregator: consolidates batches by generating ZKPs (Zero Knowledge proofs). To do so it gathers the necessary data that the `prover` needs as input through the `state` and sends a request to it. Once the proof is generated it's sent to Ethereum through the `etherman`

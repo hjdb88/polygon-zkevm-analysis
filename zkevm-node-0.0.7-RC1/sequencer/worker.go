@@ -120,6 +120,7 @@ func (w *Worker) applyAddressUpdate(from common.Address, fromNonce *uint64, from
 }
 
 // UpdateAfterSingleSuccessfulTxExecution updates the touched addresses after execute on Executor a successfully tx
+// 在Executor上执行成功tx后更新触摸地址
 func (w *Worker) UpdateAfterSingleSuccessfulTxExecution(from common.Address, touchedAddresses map[common.Address]*state.InfoReadWrite) []*TxTracker {
 	w.workerMutex.Lock()
 	defer w.workerMutex.Unlock()
@@ -218,6 +219,7 @@ func (w *Worker) UpdateTx(txHash common.Hash, addr common.Address, counters stat
 }
 
 // GetBestFittingTx gets the most efficient tx that fits in the available batch resources
+// 获取适合可用批次资源的最高效tx
 func (w *Worker) GetBestFittingTx(resources batchResources) *TxTracker {
 	w.workerMutex.Lock()
 	defer w.workerMutex.Unlock()

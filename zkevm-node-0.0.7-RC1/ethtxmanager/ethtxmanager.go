@@ -65,6 +65,7 @@ func New(cfg Config, ethMan ethermanInterface, storage storageInterface, state s
 }
 
 // Add a transaction to be sent and monitored
+// 放置要发送和监控的交易
 func (c *Client) Add(ctx context.Context, owner, id string, from common.Address, to *common.Address, value *big.Int, data []byte, dbTx pgx.Tx) error {
 	// get next nonce
 	nonce, err := c.etherman.CurrentNonce(ctx, from)
@@ -120,6 +121,7 @@ func (c *Client) Add(ctx context.Context, owner, id string, from common.Address,
 // if the statuses are empty, all the statuses are considered.
 //
 // the slice is returned is in order by created_at field ascending
+// 返回与所有者相关的所有受监控tx的所有结果，如果状态为空，则匹配提供的状态，否则则考虑所有状态。返回的切片按created_at字段升序排列
 func (c *Client) ResultsByStatus(ctx context.Context, owner string, statuses []MonitoredTxStatus, dbTx pgx.Tx) ([]MonitoredTxResult, error) {
 	mTxs, err := c.storage.GetByStatus(ctx, &owner, statuses, dbTx)
 	if err != nil {
@@ -226,6 +228,7 @@ func (c *Client) Stop() {
 
 // Reorg updates all monitored txs from provided block number until the last one to
 // Reorged status, allowing it to be reprocessed by the tx monitoring
+// 将提供的blockNumber直到最新blockNumber的所有受监控的 tx 更新到 Reorged 状态，允许它由 tx 监控重新处理
 func (c *Client) Reorg(ctx context.Context, fromBlockNumber uint64, dbTx pgx.Tx) error {
 	log.Infof("processing reorg from block: %v", fromBlockNumber)
 	mTxs, err := c.storage.GetByBlock(ctx, &fromBlockNumber, nil, dbTx)
@@ -572,6 +575,8 @@ type ResultHandler func(MonitoredTxResult, pgx.Tx)
 // and wait until all of them are either confirmed or failed before continuing
 //
 // for the confirmed and failed ones, the resultHandler will be triggered
+// 将检查此所有者的所有受监控 tx，并等待所有这些 tx 在继续之前被确认或失败
+// 对于已确认和失败的，将触发resultHandler
 func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, resultHandler ResultHandler, dbTx pgx.Tx) {
 	statusesFilter := []MonitoredTxStatus{
 		MonitoredTxStatusCreated,
@@ -581,6 +586,7 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 		MonitoredTxStatusReorged,
 	}
 	// keep running until there are pending monitored txs
+	// 继续运行直到有待处理的监控交易
 	for {
 		results, err := c.ResultsByStatus(ctx, owner, statusesFilter, dbTx)
 		if err != nil {
@@ -599,12 +605,14 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 			resultLog := log.WithFields("owner", owner, "id", result.ID)
 
 			// if the result is confirmed, we set it as done do stop looking into this monitored tx
+			// 如果结果得到确认，我们将其设置为完成停止查看此受监控的 tx
 			if result.Status == MonitoredTxStatusConfirmed {
 				err := c.setStatusDone(ctx, owner, result.ID, dbTx)
 				if err != nil {
 					resultLog.Errorf("failed to set monitored tx as done, err: %v", err)
 					// if something goes wrong at this point, we skip this result and move to the next.
 					// this result is going to be handled again in the next cycle by the outer loop.
+					// 如果此时出现问题，我们将跳过这个结果并转到下一个。这个结果将在下一个循环中由外循环再次处理。
 					continue
 				} else {
 					resultLog.Info("monitored tx confirmed")
@@ -614,17 +622,21 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 			}
 
 			// if the result is failed, we need to go around it and rebuild a batch verification
+			// 如果结果失败，我们需要绕过它并重建一个批量验证
 			if result.Status == MonitoredTxStatusFailed {
 				resultHandler(result, dbTx)
 				continue
 			}
 
 			// if the result is either not confirmed or failed, it means we need to wait until it gets confirmed of failed.
+			// 如果结果未确认或失败，则意味着我们需要等到确认失败
 			for {
 				// wait before refreshing the result info
+				// 在刷新结果信息之前等待
 				time.Sleep(time.Second)
 
 				// refresh the result info
+				// 刷新结果信息
 				result, err := c.Result(ctx, owner, result.ID, dbTx)
 				if err != nil {
 					resultLog.Errorf("failed to get monitored tx result, err: %v", err)
@@ -632,6 +644,7 @@ func (c *Client) ProcessPendingMonitoredTxs(ctx context.Context, owner string, r
 				}
 
 				// if the result status is confirmed or failed, breaks the wait loop
+				// 如果结果状态为确认或失败，则中断等待循环
 				if result.Status == MonitoredTxStatusConfirmed || result.Status == MonitoredTxStatusFailed {
 					break
 				}

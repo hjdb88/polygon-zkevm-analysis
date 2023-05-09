@@ -433,6 +433,7 @@ func (s *State) OpenBatch(ctx context.Context, processingContext ProcessingConte
 }
 
 // ProcessSequencerBatch is used by the sequencers to process transactions into an open batch
+// 由定序器用来将交易处理成一个开放的批次
 func (s *State) ProcessSequencerBatch(ctx context.Context, batchNumber uint64, batchL2Data []byte, caller CallerLabel, dbTx pgx.Tx) (*ProcessBatchResponse, error) {
 	log.Debugf("*******************************************")
 	log.Debugf("ProcessSequencerBatch start")
@@ -456,6 +457,7 @@ func (s *State) ProcessSequencerBatch(ctx context.Context, batchNumber uint64, b
 }
 
 // ProcessBatch processes a batch
+// 处理一个批次
 func (s *State) ProcessBatch(ctx context.Context, request ProcessRequest, updateMerkleTree bool) (*ProcessBatchResponse, error) {
 	log.Debugf("*******************************************")
 	log.Debugf("ProcessBatch start")
@@ -561,6 +563,7 @@ func (s *State) ExecuteBatch(ctx context.Context, batch Batch, updateMerkleTree 
 	return processBatchResponse, err
 }
 
+// processBatch 处理批次
 func (s *State) processBatch(
 	ctx context.Context,
 	batchNumber uint64,
@@ -577,9 +580,11 @@ func (s *State) processBatch(
 	}
 
 	// Get latest batch from the database to get globalExitRoot and Timestamp
+	// 从数据库中获取最新批次以获取 globalExitRoot 和 Timestamp
 	lastBatch := lastBatches[0]
 
 	// Get batch before latest to get state root and local exit root
+	// 在latest之前获得批次以获得状态根和本地exit root
 	previousBatch := lastBatches[0]
 	if len(lastBatches) > 1 {
 		previousBatch = lastBatches[1]
@@ -654,12 +659,14 @@ func (s *State) sendBatchRequestToExecutor(ctx context.Context, processBatchRequ
 // StoreTransactions is used by the sequencer to add processed transactions into
 // an open batch. If the batch already has txs, the processedTxs must be a super
 // set of the existing ones, preserving order.
+// 由定序器用于将已处理的交易添加到打开的批处理中。如果批处理已经有txs，则处理的Txs必须是现有Txs的超集，保持顺序。
 func (s *State) StoreTransactions(ctx context.Context, batchNumber uint64, processedTxs []*ProcessTransactionResponse, dbTx pgx.Tx) error {
 	if dbTx == nil {
 		return ErrDBTxNil
 	}
 
 	// check existing txs vs parameter txs
+	// 检查现有交易与参数交易
 	existingTxs, err := s.GetTxsHashesByBatchNumber(ctx, batchNumber, dbTx)
 	if err != nil {
 		return err
@@ -1520,6 +1527,7 @@ func (s *State) SetGenesis(ctx context.Context, block Block, genesis Genesis, db
 // CheckSupersetBatchTransactions verifies that processedTransactions is a
 // superset of existingTxs and that the existing txs have the same order,
 // returns a non-nil error if that is not the case.
+// 验证 processedTransactions 是 existingTxs 的超集并且现有 txs 具有相同的顺序，如果不是这种情况则返回非零错误
 func CheckSupersetBatchTransactions(existingTxHashes []common.Hash, processedTxs []*ProcessTransactionResponse) error {
 	if len(existingTxHashes) > len(processedTxs) {
 		return ErrExistingTxGreaterThanProcessedTx

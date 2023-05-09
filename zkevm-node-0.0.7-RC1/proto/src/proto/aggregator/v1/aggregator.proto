@@ -23,11 +23,17 @@ message AggregatorMessage
     string id = 1;
     oneof request
     {
+        // 获取prover状态
         GetStatusRequest get_status_request = 2;
+        // 生成批次证明
         GenBatchProofRequest gen_batch_proof_request = 3;
+        // 生成聚合证明
         GenAggregatedProofRequest gen_aggregated_proof_request = 4;
+        // 生成最终证明
         GenFinalProofRequest gen_final_proof_request = 5;
+        // 取消请求
         CancelRequest cancel_request = 6;
+        // 获取证明
         GetProofRequest get_proof_request = 7;
     }
 }
