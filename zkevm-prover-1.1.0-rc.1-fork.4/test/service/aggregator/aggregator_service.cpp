@@ -244,6 +244,7 @@ using grpc::Status;
     return Status::OK;
 }
 
+// GenBatchProof生成批次证明
 ::grpc::Status AggregatorServiceImpl::GenBatchProof(::grpc::ServerContext* context, ::grpc::ServerReaderWriter< ::aggregator::v1::AggregatorMessage, ::aggregator::v1::ProverMessage>* stream, const string &inputFile, string &requestID)
 {
     aggregator::v1::AggregatorMessage aggregatorMessage;
@@ -551,6 +552,7 @@ using grpc::Status;
     uint64_t i;
 
     // Generate batch proof 0
+    // 生成批次证明0
     grpcStatus = GenBatchProof(context, stream, inputFile, requestID);
     if (grpcStatus.error_code() != Status::OK.error_code())
     {

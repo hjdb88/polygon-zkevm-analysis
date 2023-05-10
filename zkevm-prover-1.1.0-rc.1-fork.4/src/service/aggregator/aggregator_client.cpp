@@ -104,6 +104,7 @@ bool AggregatorClient::GetStatus (::aggregator::v1::GetStatusResponse &getStatus
     return true;
 }
 
+// 生成批次证明
 bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest &genBatchProofRequest, aggregator::v1::GenBatchProofResponse &genBatchProofResponse)
 {
 #ifdef LOG_SERVICE
@@ -120,9 +121,11 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
 #endif
 
     // Parse public inputs
+    // 转换参数
 
     string auxString;
 
+    // 校验oldStateRoot
     auxString = ba2string(genBatchProofRequest.input().public_inputs().old_state_root());
     if (auxString.size() > 64)
     {
@@ -132,6 +135,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
     }
     pProverRequest->input.publicInputsExtended.publicInputs.oldStateRoot.set_str(auxString, 16);
 
+    // 校验oldAccInputHash
     auxString = ba2string(genBatchProofRequest.input().public_inputs().old_acc_input_hash());
     if (auxString.size() > 64)
     {
@@ -143,6 +147,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
 
     pProverRequest->input.publicInputsExtended.publicInputs.oldBatchNum = genBatchProofRequest.input().public_inputs().old_batch_num();
 
+    // 校验chainId
     pProverRequest->input.publicInputsExtended.publicInputs.chainID = genBatchProofRequest.input().public_inputs().chain_id();
     if (pProverRequest->input.publicInputsExtended.publicInputs.chainID == 0)
     {
@@ -151,6 +156,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
         return false;
     }
 
+    // 校验forkId
     pProverRequest->input.publicInputsExtended.publicInputs.forkID = genBatchProofRequest.input().public_inputs().fork_id();
 
     if (pProverRequest->input.publicInputsExtended.publicInputs.forkID != PROVER_FORK_ID)
@@ -169,6 +175,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
         return false;
     }
 
+    // 校验batchL2Data数据长度
     pProverRequest->input.publicInputsExtended.publicInputs.batchL2Data = genBatchProofRequest.input().public_inputs().batch_l2_data();
     if (pProverRequest->input.publicInputsExtended.publicInputs.batchL2Data.size() > MAX_BATCH_L2_DATA_SIZE)
     {
@@ -177,6 +184,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
         return false;
     }
 
+    // 校验GlobalExitRoot
     if (genBatchProofRequest.input().public_inputs().global_exit_root().size() > 32)
     {
         cerr << "Error: AggregatorClient::GenProof() got globalExitRoot too long, size=" << genBatchProofRequest.input().public_inputs().global_exit_root().size() << endl;
@@ -187,6 +195,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
 
     pProverRequest->input.publicInputsExtended.publicInputs.timestamp = genBatchProofRequest.input().public_inputs().eth_timestamp();
 
+    // 处理设置sequencerAddr
     auxString = Remove0xIfPresent(genBatchProofRequest.input().public_inputs().sequencer_addr());
     if (auxString.size() > 40)
     {
@@ -196,6 +205,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
     }
     pProverRequest->input.publicInputsExtended.publicInputs.sequencerAddr.set_str(auxString, 16);
 
+    // 处理设置aggregatorAddr
     auxString = Remove0xIfPresent(genBatchProofRequest.input().public_inputs().aggregator_addr());
     if (auxString.size() > 40)
     {
@@ -235,6 +245,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
     }
 
     // Parse contracts data
+    // 转换合约相关数据
     google::protobuf::Map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> > contractsBytecode;
     contractsBytecode = genBatchProofRequest.input().contracts_bytecode();
     google::protobuf::Map<std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char> >::iterator itp;
@@ -255,6 +266,7 @@ bool AggregatorClient::GenBatchProof (const aggregator::v1::GenBatchProofRequest
     }
 
     // Submit the prover request
+    // 提交prover请求
     string uuid = prover.submitRequest(pProverRequest);
 
     // Build the response as Ok, returning the UUID assigned by the prover to this request

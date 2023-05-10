@@ -114,6 +114,7 @@ void runFileGenAggregatedProof(Goldilocks fr, Prover &prover, Config &config)
     prover.genAggregatedProof(&proverRequest);
 }
 
+// 执行文件生成最终证明
 void runFileGenFinalProof(Goldilocks fr, Prover &prover, Config &config)
 {
     // Load and parse input JSON file
@@ -127,6 +128,7 @@ void runFileGenFinalProof(Goldilocks fr, Prover &prover, Config &config)
     TimerStopAndLog(INPUT_LOAD);
 
     // Call the prover
+    // 调用证明者
     prover.genFinalProof(&proverRequest);
 }
 
@@ -138,6 +140,7 @@ uint64_t processBatchTotalPaddingPG = 0;
 uint64_t processBatchTotalPoseidonG = 0;
 uint64_t processBatchTotalSteps = 0;
 
+// 处理批次
 void runFileProcessBatch(Goldilocks fr, Prover &prover, Config &config)
 {
     // Load and parse input JSON file
@@ -205,6 +208,7 @@ public:
 #define RUN_FILE_MULTITHREAD_N_THREADS 100
 #define RUN_FILE_MULTITHREAD_N_FILES 100
 
+// 多线程处理批次
 void *runFileProcessBatchThread(void *arg)
 {
     RunFileThreadArguments *pArgs = (RunFileThreadArguments *)arg;
@@ -212,6 +216,7 @@ void *runFileProcessBatchThread(void *arg)
     // For all files
     for (uint64_t i = 0; i < RUN_FILE_MULTITHREAD_N_FILES; i++)
     {
+        // 处理批次
         runFileProcessBatch(pArgs->fr, pArgs->prover, pArgs->config);
     }
 
@@ -683,12 +688,14 @@ int main(int argc, char **argv)
                 tmpConfig.inputFile = config.inputFile + files[i];
                 cout << "runFileGenFinalProof inputFile=" << tmpConfig.inputFile << endl;
                 // Call the prover
+                // 执行文件生成最终证明
                 runFileGenFinalProof(fr, prover, tmpConfig);
             }
         }
         else
         {
             // Call the prover
+            // 执行文件生成最终证明
             runFileGenFinalProof(fr, prover, config);
         }
     }

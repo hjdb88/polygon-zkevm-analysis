@@ -189,6 +189,7 @@ void *proverThread(void *arg)
         pProver->lock();
 
         // Wait for the pending request queue semaphore to be released, if there are no more pending requests
+        // 如果没有更多的待处理请求，等待待处理请求队列信号量被释放
         if (pProver->pendingRequests.size() == 0)
         {
             pProver->unlock();
@@ -196,6 +197,7 @@ void *proverThread(void *arg)
         }
 
         // Check that the pending requests queue is not empty
+        // 校验待处理请求队列不为空
         if (pProver->pendingRequests.size() == 0)
         {
             pProver->unlock();
@@ -295,6 +297,7 @@ void *cleanerThread(void *arg)
     return NULL;
 }
 
+// 提交请求，并返回UUID
 string Prover::submitRequest(ProverRequest *pProverRequest) // returns UUID for this request
 {
     zkassert(config.generateProof());
@@ -303,12 +306,17 @@ string Prover::submitRequest(ProverRequest *pProverRequest) // returns UUID for 
     cout << "Prover::submitRequest() started type=" << pProverRequest->type << endl;
 
     // Get the prover request UUID
+    // 获取证明者请求UUID
     string uuid = pProverRequest->uuid;
 
     // Add the request to the pending requests queue, and release the semaphore to notify the prover thread
+    // 将请求添加到pending requests队列，释放信号量通知prover线程
     lock();
+    // 将请求添加到map中
     requestsMap[uuid] = pProverRequest;
+    // 向待处理请求队列放入请求信息
     pendingRequests.push_back(pProverRequest);
+    // 发送信号量
     sem_post(&pendingRequestSem);
     unlock();
 
@@ -762,6 +770,7 @@ void Prover::genAggregatedProof(ProverRequest *pProverRequest)
     TimerStopAndLog(PROVER_AGGREGATED_PROOF);
 }
 
+// 获取最终证明
 void Prover::genFinalProof(ProverRequest *pProverRequest)
 {
     zkassert(config.generateProof());

@@ -45,9 +45,9 @@ class Prover
 public:
     unordered_map<string, ProverRequest *> requestsMap; // Map uuid -> ProveRequest pointer
 
-    vector<ProverRequest *> pendingRequests;   // Queue of pending requests
-    ProverRequest *pCurrentRequest;            // Request currently being processed by the prover thread in server mode
-    vector<ProverRequest *> completedRequests; // Map uuid -> ProveRequest pointer
+    vector<ProverRequest *> pendingRequests;   // Queue of pending requests 待处理请求队列
+    ProverRequest *pCurrentRequest;            // Request currently being processed by the prover thread in server mode 服务器模式下当前正在由证明者线程处理的请求
+    vector<ProverRequest *> completedRequests; // Map uuid -> ProveRequest pointer 映射uuid -> ProveRequest指针
 
 private:
     pthread_t proverPthread;  // Prover thread

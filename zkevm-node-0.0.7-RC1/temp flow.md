@@ -12,7 +12,7 @@
       2. 检查是否发生重组（sequencer/dbmanager#checkIfReorg）
       3. 将tx存储到状态中并更改它在池中的状态（sequencer/dbmanager#storeProcessedTxAndDeleteFromPool）
          1. 循环处理
-         2. 获取数据，txToStore := <-d.txsStore.Ch <font color="red">待补充数据来源</font>
+         2. 获取数据，<font color="#66ffff">txToStore := <-d.txsStore.Ch</font>
          3. 检查是否发生重组
          4. 刷新状态数据库
          5. 在状态中存储一笔交易（sequencer/dbmanager#StoreProcessedTransaction）
@@ -20,7 +20,17 @@
          7. 将交易池中对应交易状态更改为选中（pool/pool.go#UpdateTxStatus）
    3. 启动终结器（sequencer/finalizer.go#Start）
       1. 关闭信号接收器（sequencer/finalizer.go#listenForClosingSignals）
-         1. <font color="red">待补充</font>
+         1. ForcedBatch消息处理，<font color="#ff66cc">fb := <-f.closingSignalCh.ForcedBatchCh</font>
+            1. 更新下一批强制批次
+            2. 如果下一批期限时间未设置则进行设置
+         2. GlobalExitRoot消息处理，<font color="#ccff00">ger := <-f.closingSignalCh.GERCh</font>
+            1. 更新下一个Global Exit Root
+            2. 如果下一个GlobalExitRoot期限时间未设置则进行设置
+         3. L2Reorg消息处理，<font color="#ff33ff"><-f.closingSignalCh.L2ReorgCh</font>
+            1. 设置handlingL2Reorg标志为true
+            2. 停止终结器并保存事件日志、进行日志输出
+         4. L1中太长时间没有批次消息处理，<font color="#ffff33"><-f.closingSignalCh.SendingToL1TimeoutCh</font>
+            1. 如果下一个标志发送到L1的批期限时间未设置则进行设置
       2. 处理交易并完成批次（sequencer/finalizer.go#finalizeBatches）
          1. 循环处理
          2. 获取适合可用批次资源的最高效tx（sequencer/worker.go#GetBestFittingTx） <font color="red">待补充详细规则</font>
@@ -31,7 +41,7 @@
                1. 处理交易错误
                2. 检查剩余资源，校验交易使用的资源是否少于批处理中的剩余资源（sequencer/finalizer.go#checkRemainingResources）
                3. 存储已处理的交易，将其添加到批处理中并以原子方式更新池中的状态（sequencer/finalizer.go#storeProcessedTx）
-                  1. 存储处理后的交易，f.txsStore.Ch <- &txToStore{...}
+                  1. 存储处理后的交易，<font color="#66ffff">f.txsStore.Ch <- &txToStore{...}</font>
                   2. 从效率列表中删除交易（sequencer/worker.go#DeleteTx）
                   3. 在Executor上执行成功tx后更新地址信息（sequencer/worker.go#UpdateAfterSingleSuccessfulTxExecution）
                   4. 更新交易状态（sequencer/dbmanager#UpdateTxStatus）
@@ -39,11 +49,17 @@
          4. tx为空，等待新tx
          5. 遇到任何关闭信号的最后期限或者批次交易数量已满或者当前批次剩余资源在最有效时刻关闭批的约束阈值范围内（满足isDeadlineEncountered或者isBatchFull或者isBatchAlmostFull时执行sequencer/finalizer.go#finalizeBatch）
             1. 重试直到成功关闭当前批次并打开一个新批次，可能会在批次关闭和生成的新空批次之间处理强制批次
-   4. 关闭信号管理器（sequencer/closingsignalsignal#Start）
-      1. checkForcedBatches
-      2. checkGERUpdate
-      3. checkSendToL1Timeout
-   5. trackOldTxs
+   4. 关闭信号管理器（sequencer/closingsignalsmanager.go#Start）
+      1. 定时检查强制批次（sequencer/closingsignalsmanager.go#checkForcedBatches）
+         1. 获取待处理的强制批次
+         2. 循环发送强制批次到channel，<font color="#ff66cc">c.closingSignalCh.ForcedBatchCh <- *forcedBatch</font>
+      2. 定时检查Global Exit Root更新（sequencer/closingsignalsmanager.go#checkGERUpdate）
+         1. 获取最新Global Exit Root
+         2. 如果Global Exit Root已变化发送消息到channel，<font color="#ccff00">c.closingSignalCh.GERCh <- ger.GlobalExitRoot</font>
+      3. 定时检查L1提交超时（sequencer/closingsignalsmanager.go#checkSendToL1Timeout）
+         1. 获取最后一次提交时间
+         2. 如果超过配置的限定时间范围发送消息到channel，<font color="#ffff33">c.closingSignalCh.SendingToL1TimeoutCh <- true</font>
+   5. 监控旧交易并处理（sequencer/sequencer.go#trackOldTxs）
    6. 尝试发送批次（sequencer/sequencesender.go#isSynced#tryToSendSequence）
       1. 在开始下一个循环之前处理监控的交易（#ProcessPendingMonitoredTxs）
       2. 检查同步器是否是最新的（sequencer/sequencer.go#isSynced）
@@ -136,6 +152,102 @@
                3. 由定序器用来将交易处理成一个开放的批次（state/state.go#ProcessSequencerBatch）
                   1. 最终调用Prover的executor模块执行交易并返回结果
                4. 由定序器用于将已处理的交易添加到打开的批处理中（state/state.go#StoreTransactions）
+
+
+-----
+
+
+### Prover
+
+1. BatchProof，参数InputProver
+   ```protobuf
+    message GenBatchProofRequest {
+        InputProver input = 1;
+    }
+    message InputProver {
+        PublicInputs public_inputs = 1;
+        map<string, string> db = 4; // For debug/testing purpposes only. Don't fill this on production
+        map<string, string> contracts_bytecode = 5; // For debug/testing purpposes only. Don't fill this on production
+    }
+    message PublicInputs {
+        bytes old_state_root = 1;
+        bytes old_acc_input_hash = 2;
+        uint64 old_batch_num = 3;
+        uint64 chain_id = 4;
+        uint64 fork_id = 5;
+        bytes batch_l2_data = 6;
+        bytes global_exit_root = 7;
+        uint64 eth_timestamp = 8;
+        string sequencer_addr = 9;
+        string aggregator_addr = 10;
+    }
+   ```
+   ```go
+   type InputProver struct {
+       state         protoimpl.MessageState
+       sizeCache     protoimpl.SizeCache
+       unknownFields protoimpl.UnknownFields
+   
+       PublicInputs      *PublicInputs     `protobuf:"bytes,1,opt,name=public_inputs,json=publicInputs,proto3" json:"public_inputs,omitempty"`
+       Db                map[string]string `protobuf:"bytes,4,rep,name=db,proto3" json:"db,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`                                                        // For debug/testing purpposes only. Don't fill this on production
+       ContractsBytecode map[string]string `protobuf:"bytes,5,rep,name=contracts_bytecode,json=contractsBytecode,proto3" json:"contracts_bytecode,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // For debug/testing purpposes only. Don't fill this on production
+   }
+   type PublicInputs struct {
+       state         protoimpl.MessageState
+       sizeCache     protoimpl.SizeCache
+       unknownFields protoimpl.UnknownFields
+   
+       OldStateRoot    []byte `protobuf:"bytes,1,opt,name=old_state_root,json=oldStateRoot,proto3" json:"old_state_root,omitempty"`
+       OldAccInputHash []byte `protobuf:"bytes,2,opt,name=old_acc_input_hash,json=oldAccInputHash,proto3" json:"old_acc_input_hash,omitempty"`
+       OldBatchNum     uint64 `protobuf:"varint,3,opt,name=old_batch_num,json=oldBatchNum,proto3" json:"old_batch_num,omitempty"`
+       ChainId         uint64 `protobuf:"varint,4,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+       ForkId          uint64 `protobuf:"varint,5,opt,name=fork_id,json=forkId,proto3" json:"fork_id,omitempty"`
+       BatchL2Data     []byte `protobuf:"bytes,6,opt,name=batch_l2_data,json=batchL2Data,proto3" json:"batch_l2_data,omitempty"`
+       GlobalExitRoot  []byte `protobuf:"bytes,7,opt,name=global_exit_root,json=globalExitRoot,proto3" json:"global_exit_root,omitempty"`
+       EthTimestamp    uint64 `protobuf:"varint,8,opt,name=eth_timestamp,json=ethTimestamp,proto3" json:"eth_timestamp,omitempty"`
+       SequencerAddr   string `protobuf:"bytes,9,opt,name=sequencer_addr,json=sequencerAddr,proto3" json:"sequencer_addr,omitempty"`
+       AggregatorAddr  string `protobuf:"bytes,10,opt,name=aggregator_addr,json=aggregatorAddr,proto3" json:"aggregator_addr,omitempty"`
+   }
+   ```
+2. WaitRecursiveProof
+3. AggregatedProof
+4. FinalProof
+5. WaitFinalProof
+
+
+1. 当聚合器服务调用以生成批量证明时：
+    * 它调用 Prover 组件执行输入数据（一批 EVM 交易），计算结果状态，并根据 PIL 多项式定义及其约束生成计算证明。
+        * Executor 组件结合了 14 个状态机，这些状态机处理输入数据以生成生成证明所需的提交多项式的评估。每个状态机生成它们的计算证据数据，更复杂的演算演示委托给下一个状态机。
+    * Prover 组件调用 Stark 组件来生成 Executor 状态机提交多项式的证明。
+2. 当聚合器服务调用以生成聚合证明时：Prover 组件结合了 Aggregator 提供的 2 个先前计算的批量或聚合证明的结果，并生成一个聚合证明。
+3. 当聚合器服务调用以生成最终证明时：Prover 组件采用聚合器提供的先前计算的聚合证明的结果，并生成可以验证的最终证明。
+
+```
+    Prover (available via GRPC service)
+    |\
+    | Executor (available via GRPC service)
+    | |\
+    | | Main State Machine
+    | | Byte4 State Machine
+    | | Binary State Machine
+    | | Memory State Machine
+    | | Mem Align State Machine
+    | | Arithmetic State Machine
+    | | Storage State Machine------\
+    | |                             |--> Poseidon G State Machine
+    | | Padding PG State Machine---/
+    | | Padding KK SM -> Padding KK Bit -> Bits 2 Field SM -> Keccak-f SM
+    |  \
+    |   State DB (available via GRPC service)
+    |   |\
+    |   | SMT
+    |    \
+    |     Database
+    |\
+    | Stark
+    |\
+    | Circom
+```
 
 
 -----

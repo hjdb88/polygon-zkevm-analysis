@@ -188,6 +188,7 @@ func (f *finalizer) listenForClosingSignals(ctx context.Context) {
 			f.halt(ctx, fmt.Errorf("L2 reorg event received"))
 			return
 		// Too much time without batches in L1 ch
+		// L1中太长时间没有批次
 		case <-f.closingSignalCh.SendingToL1TimeoutCh:
 			log.Debug("finalizer received timeout for sending to L1")
 			f.nextSendingToL1TimeoutMux.Lock()
