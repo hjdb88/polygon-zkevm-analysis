@@ -1,0 +1,15 @@
+bridge   v.1.1
+estark   v.1.2
+mulmod-opcode   v.1.0
+pil   v.1.0
+proof-recursion   v.1.0
+trustless-l2-state-management   v.1.1
+zkevm-architecture   v.1.0
+
+
+
+
+
+
+
+
