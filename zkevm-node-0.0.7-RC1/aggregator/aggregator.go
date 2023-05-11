@@ -146,6 +146,7 @@ func (a *Aggregator) Start(ctx context.Context) error {
 
 	a.resetVerifyProofTime()
 
+	// 定时从存储中删除锁定在生成状态并且超过设定阈值的证明
 	go a.cleanupLockedProofs()
 	// 发送最后证明
 	go a.sendFinalProof()
@@ -262,6 +263,7 @@ func (a *Aggregator) sendFinalProof() {
 			log.WithFields("proofId", proof.ProofID, "batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal))
 			log.Info("Verifying final proof with ethereum smart contract")
 
+			// 将verifyingProof变量设置为true表示正在进行证明验证
 			a.startProofVerification()
 
 			// 获取给定编号的批次
@@ -1115,6 +1117,7 @@ func (a *Aggregator) cleanupLockedProofs() {
 		case <-a.ctx.Done():
 			return
 		case <-time.After(a.TimeCleanupLockedProofs.Duration):
+			// 从存储中删除锁定在生成状态并且超过设定阈值的证明
 			n, err := a.State.CleanupLockedProofs(a.ctx, a.cfg.GeneratingProofCleanupThreshold, nil)
 			if err != nil {
 				log.Errorf("Failed to cleanup locked proofs: %v", err)

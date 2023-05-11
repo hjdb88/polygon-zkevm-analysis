@@ -1,0 +1,48 @@
+Run:
+
+    ; Reset the registers to 0 before evaluate next input, if there aren't inputs, for the rest of the evaluations
+    0 => HASH_LEFT, HASH_RIGHT, OLD_ROOT, NEW_ROOT, VALUE_LOW, VALUE_HIGH, SIBLING_VALUE_HASH, RKEY, SIBLING_RKEY, RKEY_BIT, LEVEL
+
+    ${isGet()}              :JMPZ(Run_IsSetUpdate)
+                            :JMP(Get)
+Run_IsSetUpdate:
+    ${isSetUpdate()}        :JMPZ(Run_IsSetInsertFound)
+                            :JMP(Set_Update)
+Run_IsSetInsertFound:
+    ${isSetInsertFound()}   :JMPZ(Run_IsSetInsertNotFound)
+                            :JMP(Set_InsertFound)
+Run_IsSetInsertNotFound:
+    ${isSetInsertNotFound()}:JMPZ(Run_IsSetDeleteLast)
+                            :JMP(Set_InsertNotFound)
+Run_IsSetDeleteLast:
+    ${isSetDeleteLast()}    :JMPZ(Run_IsSetDeleteFound)
+                            :JMP(Set_DeleteLast)
+Run_IsSetDeleteFound:
+    ${isSetDeleteFound()}   :JMPZ(Run_IsSetDeleteNotFound)
+                            :JMP(Set_DeleteFound)
+Run_IsSetDeleteNotFound:
+    ${isSetDeleteNotFound()}:JMPZ(Run_IsSetZeroToZero)
+                            :JMP(Set_DeleteNotFound)
+Run_IsSetZeroToZero:
+    ${isSetZeroToZero()}    :JMPZ(SetAllToZero)
+                            :JMP(Set_ZeroToZero)
+
+INCLUDE "storage_sm_get.zkasm"
+INCLUDE "storage_sm_set_update.zkasm"
+INCLUDE "storage_sm_set_insert_found.zkasm"
+INCLUDE "storage_sm_set_insert_not_found.zkasm"
+INCLUDE "storage_sm_set_delete_last.zkasm"
+INCLUDE "storage_sm_set_delete_found.zkasm"
+INCLUDE "storage_sm_set_delete_not_found.zkasm"
+INCLUDE "storage_sm_set_zero_to_zero.zkasm"
+
+SetAllToZero:
+    ; Reset the registers to 0 for the rest of the evaluations
+    0 => HASH_LEFT, HASH_RIGHT, OLD_ROOT, NEW_ROOT, VALUE_LOW, VALUE_HIGH, SIBLING_VALUE_HASH, RKEY, SIBLING_RKEY, RKEY_BIT, LEVEL
+
+    ; Loop until we reach almost the end of the polynomial, i.e. only one more evaluation is pending
+NotEndPol:
+    ${isAlmostEndPolynomial()} :JMPZ(NotEndPol)
+
+    ; The last evaluation instruction: jump to the beginning of the main rom loop, i.e. to label 0
+                            :JMP(Run)

@@ -1,0 +1,185 @@
+Set_DeleteFound:
+
+    ; Root Node                               Root Node (modified)                          # end of tree
+    ;  / \                                     / \                                          |
+    ;     Intermediate Node                       Intermediate Node (modified)              ^ climb tree
+    ;      / \                                    / \                                       |
+    ;         Intermediate Node        -->           Sibling Node (common RKEY lower bits)  ^ end of branch
+    ;          / \                                                                          |
+    ;             Intermediate Node                                                         ^ climb branch
+    ;              / \                                                                      |
+    ;   Sibling Node  Old Value Node (to delete)                                            * start here
+
+
+    ; This operations is named deleted found because it is the opposite operation of insert found
+    ; After deleting the node, the remaining sibling will have to be reallocated at a higher level
+    ; All the intermediate nodes of that branch will have to be deleted
+
+    ; Create the 2 new leaf nodes: for the old found value, and for the new value
+
+    ; OldValueHash = Hash0( SIBLING_VALUE_LOW, SIBLING_VALUE_HIGH )
+    ${GetOldValueLow()} => HASH_LEFT
+    ${GetOldValueHigh()} => HASH_RIGHT
+    $ => HASH_RIGHT :HASH0
+
+    ; OldRoot = LeafNodeHash = Hash1( RKEY, Hash0( SIBLING_VALUE_LOW, SIBLING_VALUE_HIGH ) )
+    ${GetRkey()} => RKEY
+    RKEY => HASH_LEFT
+    $ => OLD_ROOT                   :HASH1
+
+    ; NewValueHash = Hash0( SIBLING_VALUE_LOW, SIBLING_VALUE_HIGH )
+    ${GetSiblingValueLow()} => HASH_LEFT
+    ${GetSiblingValueHigh()} => HASH_RIGHT
+    $ => SIBLING_VALUE_HASH, HASH_RIGHT :HASH0
+
+    ; NewRoot = LeafNodeHash = Hash1( SIBLING_RKEY, Hash0( SIBLING_VALUE_LOW, SIBLING_VALUE_HIGH ) )
+    ${GetSiblingRkey()} => SIBLING_RKEY
+    SIBLING_RKEY => HASH_LEFT
+    $ => NEW_ROOT                   :HASH1
+
+    ; Forced to zero, because we are setting to zero.
+    0 => VALUE_LOW, VALUE_HIGH
+
+SDF_InitLevel:
+
+    ; Init LEVEL register to {1,0,0,0}, and inversely rotate it level%4 times,
+    ; so that after level rotations the position of LEVEL becomes {1,0,0,0} again
+    0x01 => LEVEL
+
+    ; If level bit 0 is 1, then do 1 inverse rotation (i.e. 3 normal rotations)
+    ${GetLevelBit(0)}               :JMPZ(SDF_LevelBit1)
+                                    :ROTATE_LEVEL
+                                    :ROTATE_LEVEL
+                                    :ROTATE_LEVEL
+
+SDF_LevelBit1:
+
+    ; If level bit 1 is 1, then do 2 inverse rotations (i.e. 2 normal rotations)
+    ${GetLevelBit(1)}               :JMPZ(SDF_FirstIntermediateNode)
+                                    :ROTATE_LEVEL
+                                    :ROTATE_LEVEL
+
+    ; Create the first intermediate node that joins the old and the new value's leaf nodes
+
+SDF_FirstIntermediateNode:
+
+    ; If next key bit is zero, then sibling is right (sibling's next key bit is 1)
+    ${GetNextKeyBit()} => RKEY_BIT  :JMPZ(SDF_SiblingIsRight1)
+
+SDF_SiblingIsLeft1:
+
+    ; OldRoot = Hash0( SiblingHash, LeafNodeHash )
+    NEW_ROOT => HASH_LEFT
+    OLD_ROOT => HASH_RIGHT
+    $ => OLD_ROOT                   :HASH0
+
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY_N
+
+                                    :JMP(SDF_ClimbBranch)
+
+SDF_SiblingIsRight1:
+
+    ; OldRoot = Hash0( LeafNodeHash, SiblingHash )
+    OLD_ROOT => HASH_LEFT
+    NEW_ROOT => HASH_RIGHT
+    $ => OLD_ROOT                   :HASH0
+
+    ; Update remaining keys
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY_N
+
+SDF_ClimbBranch:
+
+    ; If we are at the top of the branch, then go to SDF_StartNewRoot
+    ${GetTopOfBranch()}             :JMPZ(SDF_StartNewRoot)
+
+    ; If next key bit is zero, then sibling is right (sibling's next key bit is 1)
+    ${GetNextKeyBit()} => RKEY_BIT  :JMPZ(SDF_SiblingIsRight2)
+
+SDF_SiblingIsLeft2:
+
+    ; NewRoot = Hash0( 0, NewRoot )
+    0x0 => HASH_LEFT
+    OLD_ROOT => HASH_RIGHT
+    $ => OLD_ROOT                   :HASH0
+
+    ; Update remaining keys
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY
+
+                                    :JMP(SDF_ClimbBranch)
+
+SDF_SiblingIsRight2:
+
+    ; NewRoot = Hash0( NewRoot, 0 )
+    OLD_ROOT => HASH_LEFT
+    0x0 => HASH_RIGHT
+    $ => OLD_ROOT                   :HASH0
+
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY
+
+                                    :JMP(SDF_ClimbBranch)
+
+SDF_StartNewRoot:
+    ; NewRoot = Hash1( SIBLING_RKEY, SIBLING_VALUE_HASH );
+    SIBLING_RKEY => HASH_LEFT
+    SIBLING_VALUE_HASH => HASH_RIGHT
+    $ => NEW_ROOT                   :HASH1
+
+SDF_ClimbTree:
+
+    ; If we are at the top of the tree, then go to SDF_Latch
+    ${GetTopTree()}                 :JMPZ(SDF_Latch)
+
+    ; If next key bit is zero, then sibling is right (sibling's next key bit is 1)
+    ${GetNextKeyBit()} => RKEY_BIT  :JMPZ(SDF_SiblingIsRight3)
+
+SDF_SiblingIsLeft3:
+
+    ; NewRoot = Hash ( SiblingHash, NewRoot )
+    NEW_ROOT => HASH_RIGHT
+    ${GetSiblingHash()} => HASH_LEFT
+    $ => NEW_ROOT                   :HASH0
+
+    ; OldRoot = Hash ( SiblingHash, OldRoot )
+    OLD_ROOT => HASH_RIGHT
+    $ => OLD_ROOT                   :HASH0
+
+    ; Update remaining keys
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY
+
+                                    :JMP(SDF_ClimbTree)
+
+SDF_SiblingIsRight3:
+
+    ; NewRoot = Hash ( NewRoot, SiblingHash )
+    NEW_ROOT => HASH_LEFT
+    ${GetSiblingHash()} => HASH_RIGHT
+    $ => NEW_ROOT                   :HASH0
+
+    ; OldRoot = Hash ( OldRoot, SiblingHash )
+    OLD_ROOT => HASH_LEFT
+    $ => OLD_ROOT                   :HASH0
+
+    ; Update remaining keys
+                                    :ROTATE_LEVEL
+                                    :CLIMB_RKEY
+                                    :CLIMB_SIBLING_RKEY
+
+                                    :JMP(SDF_ClimbTree)
+
+SDF_Latch:
+
+    ; At this point consistency is granted: OLD_ROOT, NEW_ROOT, RKEY (complete key), VALUE_LOW, VALUE_HIGH, LEVEL
+                                    :LATCH_SET
+
+    ; Return to the main loop
+                                    :JMP(Run)

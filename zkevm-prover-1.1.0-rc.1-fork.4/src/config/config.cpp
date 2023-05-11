@@ -233,8 +233,11 @@ void Config::load(json &config)
         configPath = config["configPath"];
 
     // Set default config files names
+    // 主状态机文件
     rom = string("src/main_sm/") + string(PROVER_FORK_NAMESPACE_STRING) + string("/scripts/rom.json");
+    // 散列脚本文件
     keccakScriptFile = configPath + "/scripts/keccak_script.json";
+    // 存储状态机文件
     storageRomFile = configPath + "/scripts/storage_sm_rom.json";
     zkevmConstPols = configPath + "/zkevm/zkevm.const";
     zkevmConstantsTree = configPath + "/zkevm/zkevm.consttree";

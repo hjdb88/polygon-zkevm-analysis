@@ -204,8 +204,10 @@ func (c *Client) buildResult(ctx context.Context, mTx monitoredTx) (MonitoredTxR
 // Start will start the tx management, reading txs from storage,
 // send then to the blockchain and keep monitoring them until they
 // get mined
+// 将启动tx管理，从存储中读取tx，然后发送到区块链并继续监控它们直到它们被挖掘
 func (c *Client) Start() {
 	// infinite loop to manage txs as they arrive
+	// 无限循环来管理到达的txs
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 
 	for {

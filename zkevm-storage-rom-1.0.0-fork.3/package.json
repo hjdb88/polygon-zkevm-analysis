@@ -1,0 +1,34 @@
+{
+  "name": "@hermeznetwork/zkasm",
+  "version": "0.0.13",
+  "description": "zkASM Storage compiler",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build_parser_zkasm": "mkdir -p build; ./node_modules/.bin/jison src/zkasm_parser.jison -o build/zkasm_parser.js",
+    "build_parser_command": "mkdir -p build; ./node_modules/.bin/jison src/command_parser.jison -o build/command_parser.js",
+    "build": "npm run build_parser_zkasm && npm run build_parser_command && npm run build:rom",
+    "build:rom": "node src/zkasmstorage.js zkasm/storage_sm.zkasm -o build/storage_sm_rom.json"
+  },
+  "keywords": [
+    "zero",
+    "knowledge",
+    "zkevm",
+    "ethereum",
+    "hermez",
+    "polygon"
+  ],
+  "author": "Jordi Baylina",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xPolygonHermez/zkevm-storage-rom.git"
+  },
+  "devDependencies": {
+    "ffjavascript": "^0.2.46",
+    "jison": "^0.4.18"
+  },
+  "dependencies": {
+    "yargs": "^17.1.1"
+  }
+}

@@ -206,6 +206,7 @@ void *proverThread(void *arg)
         }
 
         // Extract the first pending request (first in, first out)
+        // 提取第一个待处理的请求（先进先出）
         pProver->pCurrentRequest = pProver->pendingRequests[0];
         pProver->pCurrentRequest->startTime = time(NULL);
         pProver->pendingRequests.erase(pProver->pendingRequests.begin());
@@ -215,15 +216,19 @@ void *proverThread(void *arg)
         pProver->unlock();
 
         // Process the request
+        // 处理请求
         switch (pProver->pCurrentRequest->type)
         {
         case prt_genBatchProof:
+            // 生成批次证明
             pProver->genBatchProof(pProver->pCurrentRequest);
             break;
         case prt_genAggregatedProof:
+            // 聚合证明
             pProver->genAggregatedProof(pProver->pCurrentRequest);
             break;
         case prt_genFinalProof:
+            // 生成最终证明
             pProver->genFinalProof(pProver->pCurrentRequest);
             break;
         case prt_execute:
@@ -384,6 +389,7 @@ void Prover::processBatch(ProverRequest *pProverRequest)
     TimerStopAndLog(PROVER_PROCESS_BATCH);
 }
 
+// 生成批次证明
 void Prover::genBatchProof(ProverRequest *pProverRequest)
 {
     zkassert(config.generateProof());
@@ -403,6 +409,7 @@ void Prover::genBatchProof(ProverRequest *pProverRequest)
     // cout << "Prover::genBatchProof() proof file: " << pProverRequest->proofFile() << endl;
 
     // Save input to <timestamp>.input.json, as provided by client
+    // 将输入保存到 <timestamp>.input.json，由客户端提供
     if (config.saveInputToFile)
     {
         json inputJson;
@@ -413,19 +420,21 @@ void Prover::genBatchProof(ProverRequest *pProverRequest)
     /************/
     /* Executor */
     /************/
+    // 执行者
     TimerStart(EXECUTOR_EXECUTE_INITIALIZATION);
 
     PROVER_FORK_NAMESPACE::CommitPols cmPols(pAddress, PROVER_FORK_NAMESPACE::CommitPols::pilDegree());
     uint64_t num_threads = omp_get_max_threads();
     uint64_t bytes_per_thread = cmPols.size() / num_threads;
 #pragma omp parallel for num_threads(num_threads)
-    for (uint64_t i = 0; i < cmPols.size(); i += bytes_per_thread) // Each iteration processes 64 bytes at a time
+    for (uint64_t i = 0; i < cmPols.size(); i += bytes_per_thread) // Each iteration processes 64 bytes at a time 每次迭代一次处理64个字节
     {
         memset((uint8_t *)pAddress + i, 0, bytes_per_thread);
     }
 
     TimerStopAndLog(EXECUTOR_EXECUTE_INITIALIZATION);
     // Execute all the State Machines
+    // 执行所有状态机
     TimerStart(EXECUTOR_EXECUTE_BATCH_PROOF);
     executor.execute(*pProverRequest, cmPols);
     TimerStopAndLog(EXECUTOR_EXECUTE_BATCH_PROOF);
@@ -921,6 +930,7 @@ void Prover::genFinalProof(ProverRequest *pProverRequest)
     TimerStopAndLog(PROVER_FINAL_PROOF);
 }
 
+// execute 执行
 void Prover::execute(ProverRequest *pProverRequest)
 {
     zkassert(!config.generateProof());
@@ -953,6 +963,7 @@ void Prover::execute(ProverRequest *pProverRequest)
 
     // Allocate an area of memory, mapped to file, to store all the committed polynomials,
     // and create them using the allocated address
+    // 分配一个内存区域，映射到文件，以存储所有提交的多项式，并使用分配的地址创建它们
     uint64_t polsSize = PROVER_FORK_NAMESPACE::CommitPols::pilSize();
     void *pExecuteAddress = NULL;
 

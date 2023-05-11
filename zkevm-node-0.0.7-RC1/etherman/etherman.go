@@ -272,6 +272,7 @@ func (etherMan *Client) GetRollupInfoByBlockRange(ctx context.Context, fromBlock
 }
 
 // Order contains the event order to let the synchronizer store the information following this order.
+// 包含事件顺序让同步器按照这个顺序存储信息
 type Order struct {
 	Name EventOrder
 	Pos  int

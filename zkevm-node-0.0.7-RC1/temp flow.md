@@ -2,6 +2,16 @@
 
 ## 流程整理
 
+### 启动
+1. 启动（cmd/run.go#start）
+   1. 启动组件：
+      1. 启动Aggregator服务
+      2. 启动Sequencer服务
+      3. 启动rpc服务
+      4. 启动Synchronizer服务
+      5. 启动ETHTxManager服务
+      6. 启动L2GasPrice服务（维护建议的L2 gasPrice)
+
 ### Sequencer（定序器）
 
 1. createSequencer，Start（cmd/run.go）: 启动定序器
@@ -71,58 +81,46 @@
 
 ### Aggregator（聚合器）
 
-1. runAggregator: 启动聚合器
-   1. ProcessPendingMonitoredTxs: 开始前处理监控批次验证
-   2. DeleteUngeneratedProofs: 删除未生成的递归证明
-   3. cleanupLockedProofs
-      1. CleanupLockedProofs: 从存储中删除锁定在生成状态并且超过设定阈值的证明
-   4. sendFinalProof: 等待从证明者那里接收最终证明
-      1. startProofVerification: 将verifyingProof变量设置为true表示正在进行证明验证
-      2. GetBatchByNumber: 获取给定编号的批次
-      3. BuildTrustedVerifyBatchesTxData: 向L1合约提交证明验证
-      4. ProcessPendingMonitoredTxs: 在开始下一个周期之前处理受监控的批次验证
-      5. resetVerifyProofTime: 更新超时以验证证明
-      6. endProofVerification: 将verifyingProof变量设置为false表示没有正在进行的证明验证
+1. 启动聚合器（cmd/run.go#runAggregator）: 
+   1. 开始前处理监控批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs）
+   2. 删除未生成的递归证明（state/pgstatestorage.go#DeleteUngeneratedProofs） 
+   3. 启动聚合器grpc服务
+   4. 定时从存储中删除锁定在生成状态并且超过设定阈值的证明（aggregator/aggregator.go#cleanupLockedProofs）
+      1. 从存储中删除锁定在生成状态并且超过设定阈值的证明（state/pgstatestorage.go#CleanupLockedProofs） 
+   5. 等待从证明者那里接收最终证明，<font color="#0099cc">msg := <-a.finalProof</font>（aggregator/aggregator.go#sendFinalProof）
+      1. 将verifyingProof变量设置为true表示正在进行证明验证（aggregator/aggregator.go#startProofVerification） 
+      2. 获取给定编号的批次（state/pgstatestorage.go#GetBatchByNumber） 
+      3. 向L1合约提交证明验证（etherman/etherman.go#BuildTrustedVerifyBatchesTxData） 
+      4. 在开始下一个周期之前处理受监控的批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs） 
+      5. 更新超时以验证证明（aggregator/aggregator.go#resetVerifyProofTime） 
+      6. 将verifyingProof变量设置为false表示没有正在进行的证明验证（aggregator/aggregator.go#endProofVerification） 
 
 
-1. Channel: 实现证明者客户端和聚合器服务器之间的双向通信通道
-   1. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
-   2. tryAggregateProofs: 尝试聚合证明
-   3. tryGenerateBatchProof: 尝试生成批次证明
-
-
-1. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
-   1. 目前没有证明生成，检查是否有准备好验证的证明
-      1. getAndLockProofReadyToVerify
-      2. UpdateGeneratedProof
-   2. 目前有证明生成，检查它是否有资格被验证
-      1. validateEligibleFinalProof: 验证最终证明是否合格
-   3. buildFinalProof: 构建并返回聚合批证明的最终证明
-      1. FinalProof: 指示证明者为给定的输入生成最终证明。它返回正在计算的证明的ID
-      2. WaitFinalProof: 等待证明者生成证明并返回证明者响应
-   4. 通过channel返回证明结果
-
-
-1. tryAggregateProofs: 尝试聚合证明
-   1. AggregatedProof: 指示证明者从提供的两个输入生成聚合证明。它返回正在计算的证明的ID
-   2. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
-   3. 通过删除2个聚合证明并存储新生成的递归证明来更新状态
-   4. tryBuildFinalProof: 状态是最新的，请检查我们是否可以使用刚制作的证明发送最终证明
-   5. UpdateGeneratedProof: 最终证明还没有生成，更新递归证明
-
-
-1. tryGenerateBatchProof: 尝试生成批次证明
-   1. getAndLockBatchToProve
-   2. buildInputProver
-   3. BatchProof: 指示证明者为提供的输入生成批量证明。它返回正在计算的证明的ID
-   4. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
-   5. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
-   6. UpdateGeneratedProof: 最终证明还没有生成，更新批量证明
-   7. DeleteGeneratedProofs: 从存储中删除落在批号范围内的生成证明
-
-
------
-
+1. 实现证明者客户端和聚合器服务器之间的双向通信通道（aggregator/aggregator.go#Channel）
+   1. 检查提供的证明是否有资格用于构建最终证明（aggregator/aggregator.go#tryBuildFinalProof）
+      1. 目前没有证明生成，检查是否有准备好验证的证明
+         1. getAndLockProofReadyToVerify
+         2. UpdateGeneratedProof
+      2. 目前有证明生成，检查它是否有资格被验证
+         1. validateEligibleFinalProof: 验证最终证明是否合格
+      3. buildFinalProof: 构建并返回聚合批证明的最终证明
+         1. FinalProof: 指示证明者为给定的输入生成最终证明。它返回正在计算的证明的ID
+         2. WaitFinalProof: 等待证明者生成证明并返回证明者响应
+      4. 通过channel返回证明结果，<font color="#0099cc">a.finalProof <- msg</font>
+   2. 尝试聚合证明（aggregator/aggregator.go#tryAggregateProofs）
+      1. AggregatedProof: 指示证明者从提供的两个输入生成聚合证明。它返回正在计算的证明的ID
+      2. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
+      3. 通过删除2个聚合证明并存储新生成的递归证明来更新状态
+      4. tryBuildFinalProof: 状态是最新的，请检查我们是否可以使用刚制作的证明发送最终证明
+      5. UpdateGeneratedProof: 最终证明还没有生成，更新递归证明
+   3. 尝试生成批次证明（aggregator/aggregator.go#tryGenerateBatchProof） 
+      1. getAndLockBatchToProve
+      2. buildInputProver
+      3. BatchProof: 指示证明者为提供的输入生成批量证明。它返回正在计算的证明的ID
+      4. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
+      5. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
+      6. UpdateGeneratedProof: 最终证明还没有生成，更新批量证明
+      7. DeleteGeneratedProofs: 从存储中删除落在批号范围内的生成证明
 
 ### Synchronizer（同步器）流程
 
@@ -135,15 +133,15 @@
             2. 存在重组则重置状态，并返回（synchronizer/synchronizer.go#resetState）
                1. 重置，即删除blockNumber之后的区块数据
                2. 将提供的blockNumber直到最新blockNumber的所有受监控的tx更新到Reorged状态（ethtxmanager/ethtxmanager.go#Reorg）
-            3. 调用以太坊区块链检索数据
-            4. 查找包含在以太坊块中的rollup信息和一个名为order的额外参数，解析并处理event log（GetRollupInfoByBlockRange）
-            5. 处理区块，使用状态将新信息包含到数据库中（processBlockRange）
-               1. etherman.SequenceBatchesOrder类型: synchronizer/synchronizer.go#processSequenceBatches
-               2. etherman.ForcedBatchesOrder类型: synchronizer/synchronizer.go#processForcedBatch
-               3. etherman.GlobalExitRootsOrder类型: synchronizer/synchronizer.go#processGlobalExitRoot
-               4. etherman.SequenceForceBatchesOrder类型: synchronizer/synchronizer.go#processSequenceForceBatch
-               5. etherman.TrustedVerifyBatchOrder类型: synchronizer/synchronizer.go#processTrustedVerifyBatches
-               6. etherman.ForkIDsOrder类型: synchronizer/synchronizer.go#processForkID
+            3. 调用以太坊区块链检索区块头数据
+            4. 查找包含在以太坊块中的rollup信息和一个名为order的额外参数，解析并处理event log（etherman/etherman.go#GetRollupInfoByBlockRange）
+            5. 处理区块，使用状态将新信息包含到数据库中（synchronizer/synchronizer.go#processBlockRange）
+               1. etherman.SequenceBatchesOrder类型（synchronizer/synchronizer.go#processSequenceBatches）
+               2. etherman.ForcedBatchesOrder类型（synchronizer/synchronizer.go#processForcedBatch）
+               3. etherman.GlobalExitRootsOrder类型（synchronizer/synchronizer.go#processGlobalExitRoot）
+               4. etherman.SequenceForceBatchesOrder类型（synchronizer/synchronizer.go#processSequenceForceBatch）
+               5. etherman.TrustedVerifyBatchOrder类型（synchronizer/synchronizer.go#processTrustedVerifyBatches）
+               6. etherman.ForkIDsOrder类型（synchronizer/synchronizer.go#processForkID）
          2. 获取最后定序的批次和最后同步的批次，判断最后同步批次大于等于最后定序批次，则L1状态完整同步完成。
          3. 当节点同步了来自L1的所有信息时，从与可信状态相关的可信定序器同步信息（synchronizer/synchronizer.go#syncTrustedState）
             1. 处理可信的批次数据（synchronizer/synchronizer.go#processTrustedBatch）
@@ -153,62 +151,15 @@
                   1. 最终调用Prover的executor模块执行交易并返回结果
                4. 由定序器用于将已处理的交易添加到打开的批处理中（state/state.go#StoreTransactions）
 
+### ETHTxManager
 
------
+1. 启动ETHTxManager（ethtxmanager/ethtxmanager.go#Start）
 
 
 ### Prover
 
-1. BatchProof，参数InputProver
-   ```protobuf
-    message GenBatchProofRequest {
-        InputProver input = 1;
-    }
-    message InputProver {
-        PublicInputs public_inputs = 1;
-        map<string, string> db = 4; // For debug/testing purpposes only. Don't fill this on production
-        map<string, string> contracts_bytecode = 5; // For debug/testing purpposes only. Don't fill this on production
-    }
-    message PublicInputs {
-        bytes old_state_root = 1;
-        bytes old_acc_input_hash = 2;
-        uint64 old_batch_num = 3;
-        uint64 chain_id = 4;
-        uint64 fork_id = 5;
-        bytes batch_l2_data = 6;
-        bytes global_exit_root = 7;
-        uint64 eth_timestamp = 8;
-        string sequencer_addr = 9;
-        string aggregator_addr = 10;
-    }
-   ```
-   ```go
-   type InputProver struct {
-       state         protoimpl.MessageState
-       sizeCache     protoimpl.SizeCache
-       unknownFields protoimpl.UnknownFields
-   
-       PublicInputs      *PublicInputs     `protobuf:"bytes,1,opt,name=public_inputs,json=publicInputs,proto3" json:"public_inputs,omitempty"`
-       Db                map[string]string `protobuf:"bytes,4,rep,name=db,proto3" json:"db,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`                                                        // For debug/testing purpposes only. Don't fill this on production
-       ContractsBytecode map[string]string `protobuf:"bytes,5,rep,name=contracts_bytecode,json=contractsBytecode,proto3" json:"contracts_bytecode,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // For debug/testing purpposes only. Don't fill this on production
-   }
-   type PublicInputs struct {
-       state         protoimpl.MessageState
-       sizeCache     protoimpl.SizeCache
-       unknownFields protoimpl.UnknownFields
-   
-       OldStateRoot    []byte `protobuf:"bytes,1,opt,name=old_state_root,json=oldStateRoot,proto3" json:"old_state_root,omitempty"`
-       OldAccInputHash []byte `protobuf:"bytes,2,opt,name=old_acc_input_hash,json=oldAccInputHash,proto3" json:"old_acc_input_hash,omitempty"`
-       OldBatchNum     uint64 `protobuf:"varint,3,opt,name=old_batch_num,json=oldBatchNum,proto3" json:"old_batch_num,omitempty"`
-       ChainId         uint64 `protobuf:"varint,4,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-       ForkId          uint64 `protobuf:"varint,5,opt,name=fork_id,json=forkId,proto3" json:"fork_id,omitempty"`
-       BatchL2Data     []byte `protobuf:"bytes,6,opt,name=batch_l2_data,json=batchL2Data,proto3" json:"batch_l2_data,omitempty"`
-       GlobalExitRoot  []byte `protobuf:"bytes,7,opt,name=global_exit_root,json=globalExitRoot,proto3" json:"global_exit_root,omitempty"`
-       EthTimestamp    uint64 `protobuf:"varint,8,opt,name=eth_timestamp,json=ethTimestamp,proto3" json:"eth_timestamp,omitempty"`
-       SequencerAddr   string `protobuf:"bytes,9,opt,name=sequencer_addr,json=sequencerAddr,proto3" json:"sequencer_addr,omitempty"`
-       AggregatorAddr  string `protobuf:"bytes,10,opt,name=aggregator_addr,json=aggregatorAddr,proto3" json:"aggregator_addr,omitempty"`
-   }
-   ```
+接口：
+1. BatchProof
 2. WaitRecursiveProof
 3. AggregatedProof
 4. FinalProof
@@ -222,33 +173,6 @@
 2. 当聚合器服务调用以生成聚合证明时：Prover 组件结合了 Aggregator 提供的 2 个先前计算的批量或聚合证明的结果，并生成一个聚合证明。
 3. 当聚合器服务调用以生成最终证明时：Prover 组件采用聚合器提供的先前计算的聚合证明的结果，并生成可以验证的最终证明。
 
-```
-    Prover (available via GRPC service)
-    |\
-    | Executor (available via GRPC service)
-    | |\
-    | | Main State Machine
-    | | Byte4 State Machine
-    | | Binary State Machine
-    | | Memory State Machine
-    | | Mem Align State Machine
-    | | Arithmetic State Machine
-    | | Storage State Machine------\
-    | |                             |--> Poseidon G State Machine
-    | | Padding PG State Machine---/
-    | | Padding KK SM -> Padding KK Bit -> Bits 2 Field SM -> Keccak-f SM
-    |  \
-    |   State DB (available via GRPC service)
-    |   |\
-    |   | SMT
-    |    \
-    |     Database
-    |\
-    | Stark
-    |\
-    | Circom
-```
-
 
 -----
 
@@ -256,19 +180,13 @@
 ### 其他
 
 1. 查询rollup信息（etherman/etherman.go#GetRollupInfoByBlockRange）
-   1. etherman/etherman.go#processEvent
-      1. sequencedBatchesEventSignatureHash事件: ehterman/etherman.go#sequencedBatchesEvent
-         1. 
-      2. updateGlobalExitRootSignatureHash事件: ehterman/etherman.go#updateGlobalExitRootEvent
-         1.
-      3. forcedBatchSignatureHash事件: ehterman/etherman.go#forcedBatchEvent
-         1.
-      4. verifyBatchesTrustedAggregatorSignatureHash事件: ehterman/etherman.go#verifyBatchesTrustedAggregatorEvent
-         1.
-      5. forceSequencedBatchesSignatureHash事件: ehterman/etherman.go#forceSequencedBatchesEvent
-         1.
-      6. updateZkEVMVersionSignatureHash事件: ehterman/etherman.go#updateZkevmVersion
-         1.
+   1. 读取以太坊event log信息并处理，返回区块信息及事件顺序信息（etherman/etherman.go#readEvents、processEvent）
+      1. 处理sequencedBatchesEventSignatureHash事件（ehterman/etherman.go#sequencedBatchesEvent）
+      2. 处理updateGlobalExitRootSignatureHash事件（ehterman/etherman.go#updateGlobalExitRootEvent）
+      3. 处理forcedBatchSignatureHash事件（ehterman/etherman.go#forcedBatchEvent）
+      4. 处理verifyBatchesTrustedAggregatorSignatureHash事件（ehterman/etherman.go#verifyBatchesTrustedAggregatorEvent）
+      5. 处理forceSequencedBatchesSignatureHash事件（ehterman/etherman.go#forceSequencedBatchesEvent）
+      6. 处理updateZkEVMVersionSignatureHash事件（ehterman/etherman.go#updateZkevmVersion）
 
 
 # 备注
@@ -296,3 +214,21 @@
    ```
 4. state/state.go#StoreTransactions: StoreTransactions由定序器用于将已处理的交易添加到打开的批处理中。如果批处理已经有txs，则处理的Txs必须是现有Txs的超集，保持顺序。
 5. Prover生成证明需要什么数据
+   * 生成批次证明需要的数据
+     * oldStateRoot: 旧状态根
+     * oldAccInputHash: 旧累计账号输入哈希
+     * oldBatchNum: 旧批次号 
+     * chainId: 链ID
+     * forkId: 
+     * batchL2Data: L2交易
+     * globalExitRoot: 全局退出根
+     * ethTimestamp: 以太坊时间戳
+     * sequencerAddr: 定序器地址
+     * aggregatorAddr: 聚合器地址
+   * 生成聚合证明需要的数据
+     * recursiveProof1: 递归证明1
+     * recursiveProof2: 递归证明2
+   * 生成最终证明需要的数据
+     * recursiveProof: 递归证明
+     * aggregatorAddr: 聚合器地址
+

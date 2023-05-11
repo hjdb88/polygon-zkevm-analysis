@@ -110,6 +110,7 @@ MainExecutor::~MainExecutor ()
 {
 }
 
+// 执行并生成证明
 void MainExecutor::execute (ProverRequest &proverRequest, fork_0::MainCommitPols &pols, MainExecRequired &required)
 {
     TimerStart(MAIN_EXECUTOR_EXECUTE);
@@ -120,6 +121,7 @@ void MainExecutor::execute (ProverRequest &proverRequest, fork_0::MainCommitPols
     TimeMetricStorage evalCommandMetrics;
 #endif
     /* Get a StateDBInterface interface, according to the configuration */
+    // 根据配置获取一个StateDB接口
     StateDBInterface *pStateDB = StateDBClientFactory::createStateDBClient(fr, config);
     if (pStateDB == NULL)
     {
@@ -128,13 +130,16 @@ void MainExecutor::execute (ProverRequest &proverRequest, fork_0::MainCommitPols
     }
 
     // Init execution flags
+    // 初始化执行标志
     bool bProcessBatch = (proverRequest.type == prt_processBatch);
     bool bUnsignedTransaction = (proverRequest.input.from != "") && (proverRequest.input.from != "0x");
 
     // Create context and store a finite field reference in it
+    // 创建上下文并在其中存储有限域引用
     Context ctx(fr, config, fec, fnec, pols, rom, proverRequest, pStateDB);
 
     // Init the state of the polynomials first evaluation
+    // 初始化多项式第一次评估的状态
     initState(ctx);
 
 #ifdef LOG_COMPLETED_STEPS_TO_FILE
@@ -142,14 +147,17 @@ void MainExecutor::execute (ProverRequest &proverRequest, fork_0::MainCommitPols
 #endif
 
     // Copy input database content into context database
+    // 将输入数据库内容复制到上下文数据库中
     if (proverRequest.input.db.size() > 0)
         pStateDB->loadDB(proverRequest.input.db, false);
 
     // Copy input contracts database content into context database (dbProgram)
+    // 将输入合约内容复制到上下文数据库 (dbProgram)
     if (proverRequest.input.contractsBytecode.size() > 0)
         pStateDB->loadProgramDB(proverRequest.input.contractsBytecode, false);
 
     // opN are local, uncommitted polynomials
+    // opN 是本地的、未提交的多项式
     Goldilocks::Element op0, op1, op2, op3, op4, op5, op6, op7;
 
     uint64_t zkPC = 0; // Zero-knowledge program counter
@@ -955,6 +963,12 @@ void MainExecutor::execute (ProverRequest &proverRequest, fork_0::MainCommitPols
                     Goldilocks::Element oldRoot[4];
                     sr8to4(fr, pols.SR0[i], pols.SR1[i], pols.SR2[i], pols.SR3[i], pols.SR4[i], pols.SR5[i], pols.SR6[i], pols.SR7[i], oldRoot[0], oldRoot[1], oldRoot[2], oldRoot[3]);
 
+                    // old_root:        oldRoot
+                    // key:             ctx.lastSWrite.key
+                    // value:           scalarD
+                    // persistent:      proverRequest.input.bUpdateMerkleTree
+                    // details:         &ctx.lastSWrite.res
+                    // get_db_read_log: proverRequest.dbReadLog
                     zkresult zkResult = pStateDB->set(oldRoot, ctx.lastSWrite.key, scalarD, proverRequest.input.bUpdateMerkleTree, ctx.lastSWrite.newRoot, &ctx.lastSWrite.res, proverRequest.dbReadLog);
                     if (zkResult != ZKR_SUCCESS)
                     {
