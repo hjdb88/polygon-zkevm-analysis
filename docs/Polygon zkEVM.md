@@ -147,11 +147,11 @@ zkEVM采用先进的零知识技术来创建有效性证明。它使用零知识
 
 ### zkEVM Bridge
 
-zkEVM桥是一个智能合约，允许用户在LX和LY两层之间转移他们的资产。zkEVM中的L1-L2是用于安全存取资产的去中心化桥梁。它是两个智能合约的组合，一个部署在一个链上，另一个部署在另一条链上。
+zkEVM Bridge是一个智能合约，允许用户在LX和LY两层之间转移他们的资产。zkEVM中的L1-L2是用于安全存取资产的去中心化桥梁。它是两个智能合约的组合，一个部署在一个链上，另一个部署在另一条链上。
 
-zkEVM中的L1和L2合约除了各自的部署位置外是相同的。L1桥合约在以太坊主网上，以管理rollup之间的资产转移，而L2桥合约在特定的rollup上，负责主网和Rollup（或多个Rollup）之间的资产转移。
+zkEVM中的L1和L2合约除了各自的部署位置外是相同的。L1 Bridge合约在以太坊主网上，以管理rollup之间的资产转移，而L2 Bridge合约在特定的rollup上，负责主网和Rollup（或多个Rollup）之间的资产转移。
 
-2层互操作性允许使用本机机制在不同的L2网络之间迁移资产。该解决方案嵌入在桥梁智能合约中。
+2层互操作性允许使用本机机制在不同的L2网络之间迁移资产。该解决方案嵌入在Bridge智能合约中。
 
 ### 验证者
 
@@ -162,7 +162,7 @@ zkEVM中的L1和L2合约除了各自的部署位置外是相同的。L1桥合约
 ## 交易生命周期
 在进入L2交易流程之前，用户需要一些资金来执行任何L2交易。为此，用户需要通过zkEVM Bridge dApp将一些以太币从L1转移到L2。
 
-* 桥
+* Bridge
   * 存入以太币
   * 等到**globalExitRoot**在L2上发布
   * 在L2进行认领并收到资金
@@ -194,7 +194,7 @@ zkEVM在设计时就考虑到了安全性。而作为L2解决方案，大部分�
 
 2. 第二种策略是在链下执行所有计算，同时只在链上保留必要的数据和zk-proofs。
 
-3. 桥智能合约的实现方式，比如以UTXO方式结算，仅使用Exit Tree Roots。
+3. Bridge智能合约的实现方式，比如以UTXO方式结算，仅使用Exit Tree Roots。
 
 4. 在zkProver中使用专门的加密原语以加速计算并最小化证明大小，如下所示：
   * 运行特殊的零知识汇编语言(zkASM)来解释字节码
@@ -363,7 +363,7 @@ function sequenceBatches (
 #### 批次有效性和L2状态完整性
 
 该sequencedBatches函数遍历每批序列，检查其有效性。有效批次必须满足以下条件：
-  * 它必须包含一个globalExitRoot存在于桥的L1合约PolygonZkEVMGlobalExitRoot.sol的GlobalExitRootMap中。只有包含有效的globalExitRoot，批次才有效。
+  * 它必须包含一个globalExitRoot存在于Bridge的L1合约PolygonZkEVMGlobalExitRoot.sol的GlobalExitRootMap中。只有包含有效的globalExitRoot，批次才有效。
   * 交易字节数组的长度必须小于常量MAX_TRANSACTIONS_BYTE_LENGTH的值。
   * 该批次的时间戳必须大于或等于最后一个被排序的批次的时间戳，但小于或等于执行排序的L1交易所在块的时间戳。所有批次必须按时间排序。
 
@@ -471,7 +471,7 @@ function trustedVerifyBatches (
 **pendingStateNum** 是待合并的状态转换数，只要可信聚合器处于运行状态，它就被设置为0。**pendingState**用作在L2状态由独立聚合器合并时使用的安全措施。
 **initNumBatch** 是最后一个聚合序列中最后一批的索引。
 **finalNewBatch** 是聚合序列中正被聚合的最后一批的索引。
-**newLocalExitRoot** 是桥的L2 Exit Merkle Tree的根，在序列执行结束时用于在聚合序列时计算新的Global Exit Root，并允许桥声明transactions在L1中成功执行。
+**newLocalExitRoot** 是Bridge的L2 Exit Merkle Tree的根，在序列执行结束时用于在聚合序列时计算新的Global Exit Root，并允许Bridge声明transactions在L1中成功执行。
 **newStateRoot** 是在较旧的L2状态上执行批次序列所产生的L2 StateRoot。
 **proof(A,B和C)** 是零知识证明。
 
@@ -532,7 +532,7 @@ inputSnark是特定L2状态转换的256位唯一密码表示，用作公共参�
 * chainID: 唯一链标识符。
 * newStateRoot: L2状态根，表示正在证明的状态转换后的L2状态。
 * newAccInputHash: 正在聚合的序列中最后一批的累积哈希值。
-* newLocalExitRoot: 序列执行结束时的桥的L2 Exit Merkle Tree根。
+* newLocalExitRoot: 序列执行结束时的Bridge的L2 Exit Merkle Tree根。
 * finalNewBatch: 执行范围内最后一批次的编号。
 
 inputSnark将表示特定L2状态转换的所有L2交易，以特定顺序执行，在特定L2（链 id）中，并由特定的可信聚合器（**msg.sender**）证明。 **trustedVerifyBatches**函数不仅会验证零知识证明的有效性，还会检查 InputSnark的值是否对应于待聚合的L2状态转换。
@@ -815,7 +815,7 @@ struct PendingState {
 }
 ```
 
-已验证的批次序列保持在称为Pending state的中间状态，其中它们的状态转换尚未合并。在此状态下，新的L2状态根和桥的新GlobalExitRoot都没有添加到映射batchNumToStateRoot中。
+已验证的批次序列保持在称为Pending state的中间状态，其中它们的状态转换尚未合并。在此状态下，新的L2状态根和Bridge的新GlobalExitRoot都没有添加到映射batchNumToStateRoot中。
 
 存储变量lastPendingState用于跟踪需要合并的挂起状态转换的数量，并用作映射的key。一旦零知识证明得到验证，聚合器将获得聚合奖励。
 
@@ -908,18 +908,18 @@ function overridePendingState(
 * 当聚合活动由于**HALT_AGGREGATION_TIMEOUT**而停止时
 * 当任何人都可以证明pending状态是不确定的。
 
-## zkEVM桥
+## zkEVM Bridge
 
 ### 协议概览
 
-任何区块链与其他区块链交换数据的能力对于它参与其他区块链的生态系统至关重要；这称为互操作性。
-Polygon团队以桥的形式为Polygon zkEVM L2网络创建了互操作性解决方案。zkEVM Bridge是一个组件，可实现Polygon zkEVM网络与其他网络（例如L1（以太坊主网）或构建在以太坊之上的任何L2）之间的通信和资产迁移。
+任何区块链与其他区块链交换数据的能力对于它参与其他区块链的生态系统至关重要，这称为互操作性。
+Polygon团队以Bridge的形式为Polygon zkEVM L2网络创建了互操作性解决方案。zkEVM Bridge是一个组件，可实现Polygon zkEVM网络与其他网络（例如L1（以太坊主网）或构建在以太坊之上的任何L2）之间的通信和资产迁移。
 
 从用户的角度来看，在不改变原始资产的价值或功能的情况下将资产从一个网络转移到另一个网络的能力至关重要。此外，还支持跨链消息传递，允许在网络之间发送有效载荷。
 
-在Polygon zkEVM等L2 rollup中，L1智能合约确保正确管理L2状态转换和数据可用性。因此，通过适当的L2架构设计，Bridg智能合约的两端可以完全通过智能合约的逻辑进行同步。
+在Polygon zkEVM等L2 rollup中，L1智能合约确保正确管理L2状态转换和数据可用性。因此，通过适当的L2架构设计，Bridge智能合约的两端可以完全通过智能合约的逻辑进行同步。
 
-#### zkEVM桥架构
+#### zkEVM Bridge架构
 
 下面通过类比来理解zKEVM Bridge协议设计:
 
@@ -929,11 +929,11 @@ Polygon团队以桥的形式为Polygon zkEVM L2网络创建了互操作性解决
 
 #### 与以太坊2.0存款合约对比
 
-zkEVM Bridge智能合约的实现基于以太坊2.0存款合约，除了一些改动。例如，虽然它使用专门设计的仅附加的默克尔树，但它采用与以太坊2.0存款合约相同的逻辑。其他差异与基本哈希和叶节点有关。首先，存款合约使用SHA256，而zkEVM使用Keccak哈希函数。这一切都是因为，除了与EVM兼容之外，Keccak哈希函数在以太坊gas费用方面更便宜。其次，Bridge智能合约在第一次将新令牌添加到zkEVM网络时生成包装令牌。此外，将ERC20代币的元数据，例如名称、小数点或符号添加到叶中包含的信息中。因此，如本文件所述，每次转账都受到智能合约的保护。
+zkEVM Bridge智能合约的实现基于以太坊2.0存款合约，做了一些改动。例如，虽然使用专门设计的仅附加的默克尔树，但采用与以太坊2.0存款合约相同的逻辑。其他差异与基本哈希和叶节点有关。首先，存款合约使用SHA256，而zkEVM使用Keccak哈希函数。这一切都是因为，除了与EVM兼容之外，Keccak哈希函数在以太坊gas费用方面更便宜。其次，Bridge智能合约在第一次将新令牌添加到zkEVM网络时生成包装令牌。此外，将ERC20代币的元数据，例如名称、小数点或符号添加到叶中包含的信息中。因此，如本文件所述，每次转账都受到智能合约的保护。
 
 #### 特征
 
-Polygon zkEVM Bridge智能合约的主要特点是使用Exit Tree和Global，Global Exit Tree Root作为状态真相的主要来源。为L1和L2使用两个不同的Global Exit Root管理器，以及为Bridge智能合约和每个Global Exit Root管理器使用单独的逻辑，允许广泛的网络互操作性。
+Polygon zkEVM Bridge智能合约的主要特点是使用Exit Tree和Global Exit Root作为状态真相的主要来源。为L1和L2使用两个不同的Global Exit Root管理器，以及为Bridge智能合约和每个Global Exit Root管理器使用单独的逻辑，允许广泛的网络互操作性。
 同时，由于数据可用性，所有资产转移都可以通过任何L1和L2节点进行验证。
 以下部分解释了Polygon zkEVM Bridge相关智能合约如何确保zkEVM和任何网络之间传输的资产的安全性。
 
@@ -941,100 +941,99 @@ Polygon zkEVM Bridge智能合约的主要特点是使用Exit Tree和Global，Glo
 
 #### Exit Tree和Global Exit Tree
 
-zkEVM的Bridge智能合约为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
-zkEVM的Bridge智能合约为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊Merkle树。
+zkEVM的Bridge智能合约为参与通信或资产交换的每个网络使用一种称为Exit Tree的特殊默克尔树。
 术语Exit Tree是指添加了特性的稀疏默克尔树（SMT），它的叶子节点记录有关资产被转移出网络的信息。Polygon zkEVM使用深度为32的Exit Tree。
 从现在开始，Exit Tree的叶子被称为出口叶子。出口叶子分为两种类型：类型0用于记录资产信息和类型1用于记录消息传递信息。
 
 出口叶子是具有以下参数的ABI编码打包结构的Keccak256散列：
 * uint8 leafType: 叶子类型：[0] 资产, [1] 消息
 * int32 originNetwork: 原网络ID，原始资产所属
-* address originAddress: 如果**leafType=0**，address是原始网络以太token地址(**0x0000...0000**)。如果**leafType=1**，address为消息的**msg.sender** 
+* address originAddress: 如果**leafType=0**，address是原始网络以太token地址（**0x0000...0000**）。如果**leafType=1**，address为消息的**msg.sender** 
 * uint32 destinationNetwork: 桥接目标网络ID
 * address destinationAddress: 将在目标网络中接收桥接资产的地址
 * uint256 amount: 桥接的代币/以太币数量
 * bytes32 metadataHash: 元数据的哈希，元数据将包含有关资产转移或消息有效负载的信息
 
 当用户承诺将资产从一个网络转移到另一个网络时，Bridge智能合约必须向该网络的Exit Tree添加一个出口叶。
-Exit Tree的Merkleit Tree Root，它是 Exit Tree 的叶子节点中记录的所有信息的指纹。
+Exit Tree的默克尔根被称为Exit Tree Root，它是 Exit Tree 的叶子节点中记录的所有信息的指纹。
 
-因此，给定任何网络出口树，无论是 L1 还是 L2，其出Exit Root都是该网络的状态真实来源。
+因此，给定任何网络Exit Tree，无论是 L1 还是 L2，其Exit Tree Root都是该网络的状态真实来源。
 
-#### 全局Exit Tree
+#### Global Exit Tree
 
-考虑在L1主网和L2网络之间桥接资产的场景。Global Exit Tree是一棵二叉Merkle Tree，其叶子节点是L1 Exit Tree的Merkle root和L2 Exit Tree的Merkle root。下图描绘了全局出口树。
+考虑在L1主网和L2网络之间桥接资产的场景。Global Exit Tree是一棵二叉默克尔树，其叶子节点是L1 Exit Tree的默克尔根和L2 Exit Tree的默克尔根。下图描绘了Global Exit Tree。
 
 ![global exit tree](assets/04005-global-exit-tree.png)
 
 Global Exit Tree的默克尔根称为Global Exit Root。
 
-应该注意的是，每当将出口叶子添加到L1或L2 Exit Tree时，都会计算一个新的相应Exit Tree Root。然后，Global Exit Tree将更新为新的L1或L2 Exit Tree Root。这意味着Global Exit Root始终代表两个网络在任何给定时间的状态。
+应该注意的是，每当将出口叶子添加到L1或L2 Exit Tree时，都会计算一个新的相应的Exit Tree Root。然后，Global Exit Tree将更新为新的L1或L2 Exit Tree Root。这意味着Global Exit Root始终代表两个网络在任何给定时间的状态。
 
-因为L1 Exit Tree的默克尔根保存了L1网络的状态值，而L2 Exit Tree的默克尔根也保存了L2网络的状态值，因此最近的Global Exit Root持有了L1和L2网络的状态值。
+因为L1 Exit Tree的默克尔根保存了L1网络的状态值，而L2 Exit Tree的默克尔根也保存了L2网络的状态值，因此最新的Global Exit Root持有了L1和L2网络的状态值。
 
 一旦Global Exit Root在网络L1和L2之间同步，用户就可以使用默克尔证明来证明正确的出口叶包含和声明转移的资产。
-这就是完整的资产转移或跨链消息传递的完成方式；它以源网络中的Bridge功能开始，以目标网络中的Claim功能结束，Exit Tree Roots在两端承载状态值。
+这就是完整的资产转移或跨链消息传递的完成方式，它以源网络中的Bridge功能开始，以目标网络中的Claim功能结束，Exit Tree Root在两端承载状态值。
 
 #### 资产转移场景
 
-提供了两个场景来演示Exit Tree和Global Exit Tree在资产转移过程中的作用。
+以下两个场景演示Exit Tree和Global Exit Tree在资产转移过程中的作用。
 
 ##### 从L1转账到Rollup L2
 
-场景：用户想要将资产从L1主网转移到L2Rollup。
+场景：用户想要将资产从L1主网转移到L2 Rollup。
 一旦用户提交转移，一个新的出口叶与被桥接资产的信息被附加到L1 Exit Tree。传输数据通常如下所示：
 ```
-Origin network: 0 (L1)
+Origin network: 0（L1）
 Origin address: 0x56566... 
-Dest Network: 1 (L2)
+Dest Network: 1（L2）
 Dest Address: 0x12345...
 Amount: 145
 Metadata: 0x0...
 ```
 
-添加的新出口叶子意味着L1 Exit Tree现在有一个新的根。然后将新的L1 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Tree Root。
+添加的新出口叶子意味着L1 Exit Tree现在有一个新的根。然后将新的L1 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Root。
 
-为了在目标L2网络上声明桥接资产，需要使用默克尔证明检查Global Exit Tree Root。也就是说，可以使用默克尔证明来检查是否确实存在由相应的L1 Exit Tree Root表示的Global Exit Tree中的出口叶（资产信息被桥接到L2）。
+为了在目标L2网络上声明桥接资产，需要使用默克尔证明检查Global Exit Root。也就是说，可以使用默克尔证明来检查是否确实存在由相应的L1 Exit Tree Root表示的Global Exit Tree中的出口叶（资产信息被桥接到L2）。
 
 ![exit leaf add L1 L2](assets/04006-exit-leaf-add-L1-L2.png)
 
-##### 从Rollup L2转账到L1
+##### 从L2 Rollup转账到L1
 
 场景：从L2 Rollup转到主网L1。在这种情况下，遵循与上述示例相同的过程，只是方向相反。
 
 也就是说，一旦用户提交了转移，出口叶就会添加到具有相应转移信息的L2 Exit Tree中。传输数据通常如下所示：
 
 ```
-Origin network: 3 (L2)
+Origin network: 3（L2）
 Origin address: 0x34655... 
-Dest Network: 0 (L1)
+Dest Network: 0（L1）
 Dest Address: 0x27564...
 Amount: 92
 Metadata: 0x116...
 ```
 
-新添加的L2出口叶子意味着L2 Exit Tree有一个新的根。然后将新的L2 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Tree Root。
+新添加的L2出口叶子意味着L2 Exit Tree有一个新的根。然后将新的L2 Exit Tree Root附加到Global Exit Tree，从而更新Global Exit Root。
 
 ### 智能合约
 
-介绍三个智能合约如何实现资产转移：bridge智能合约（PolygonZkEVMBridge.sol）、Global Exit Tree Root管理器（PolygonZkEVMGlobalExitRoot.sol）和共识合约（PolygonZkEVM.sol）。
+介绍三个智能合约如何实现资产转移：bridge智能合约（PolygonZkEVMBridge.sol）、Global Exit Root管理器（PolygonZkEVMGlobalExitRoot.sol）和共识合约（PolygonZkEVM.sol）。
 
-#### 桥智能合约
+#### Bridge智能合约
 
 zkEVM Bridge智能合约（PolygonZkEVMBridge.sol）执行两个功能：Bridge（或存款）和Claim（或取款）功能。它支持将资产从一个网络桥接到另一个网络，以及声明在目标网络中收到的资产。
-一旦用户启动并承诺将资产从网络L2转移到L1，zkEVM Bridge智能合约就会向L2 Exit Tree添加出口叶。相应的传输数据包含在这样的出口叶中。之后，L2 Exit Tree的根被更新并可用于工作流中的下一个智能合约，即Global Exit Tree Root管理器智能合约。
+一旦用户启动并承诺将资产从网络L2转移到L1，zkEVM Bridge智能合约就会向L2 Exit Tree添加出口叶。相应的传输数据包含在这样的出口叶中。之后，L2 Exit Tree的根被更新并可用于工作流中的下一个智能合约，即Global Exit Root管理器智能合约。
 
-#### Global Exit Tree Root管理器合约
+#### Global Exit Root管理器合约
 
-Global Exit Tree Root管理器智能合约（PolygonZkEVMGlobalExitRoot.sol、PolygonZkEVMGlobalExitRootL2.sol）管理Global Exit Tree Root。它负责更新 Global Exit Tree Root并充当Global Exit Tree历史的存储库。
+Global Exit Root管理器智能合约（PolygonZkEVMGlobalExitRoot.sol、PolygonZkEVMGlobalExitRootL2.sol）管理Global Exit Root。它负责更新 Global Exit Root并充当Global Exit Tree历史的存储库。
 
-zkEVM Bridge智能合约的逻辑已与Global Exit Root 管理器智能合约的逻辑分离，以实现改进的互操作性。这意味着zkEVM Bridge智能合约与 Global Exit Root 管理器智能合约一起可以安装在任何网络中以达到相同的效果。
+zkEVM Bridge智能合约的逻辑已与Global Exit Root管理器智能合约的逻辑分离，以实现改进的互操作性。这意味着zkEVM Bridge智能合约与 Global Exit Root 管理器智能合约一起可以安装在任何网络中以达到相同的效果。
 
 #### 共识合约
 
 智能合约**PolygonZkEVM.sol**是Polygon zkEVM中使用的共识算法。
 
-**PolygonZkEVM.sol**智能合约位于L1以帮助进行批次验证。一旦对交易批次进行排序，就会向聚合器发出请求以证明排序批次的有效性。该证明是零知识证明，使用**Verifier.sol**合约进行验证。
+**PolygonZkEVM.sol**智能合约位于L1以帮助进行批次验证。一旦对交易批次进行排序，就会向聚合器发出请求以证明排序批次的有效性。该证明是零知识证明，使用**FflonkVerifier.sol**合约进行验证。
 
 在ZK-proof验证后，共识智能合约将zkEVM Exit Tree Root发送给Global Exit Root管理器智能合约、**PolygonZkEVMGlobalExitRoot.sol** 智能合约，用于更新Global Exit Root。
 
@@ -1046,94 +1045,97 @@ zkEVM Bridge智能合约的逻辑已与Global Exit Root 管理器智能合约的
 
 ##### L1 → zkEVM传输
 
-1. 每当用户承诺转移资产时，Bridge智能合约**PolygonZkEVMBridge.sol**使用该Bridge方法将相应的出口叶子附加到L1出口树。
-2. 更新L1 Exit Tree的根被发送到Global Exit Tree Root管理器**PolygonZkEVMGlobalExitRoot.sol**以更新Global Exit Root。
+1. 每当用户承诺转移资产时，Bridge智能合约**PolygonZkEVMBridge.sol**使用该Bridge方法将相应的出口叶子附加到L1 Exit Tree。
+2. 更新L1 Exit Tree的根被发送到Global Exit Root管理器**PolygonZkEVMGlobalExitRoot.sol**以更新Global Exit Root。
 3. 共识智能合约PolygonZkEVM.sol从Global Exit Root管理器中检索更新的Global Exit Root，用于与作为桥接资产目标网络的zkEVM同步。
 
 从L1到zkEVM的传输是用Bridge智能合约的Claim方法完成的，不过这次是在zkEVM端。
 
 ##### zkEVM → L1传输
+
 现在是相反的过程，只关注 L1 智能合约。
 
-共识 SC 使用该SequenceBatches功能对批次进行排序，其中包括资产转移信息等交易。
+共识智能合约使用该SequenceBatches功能对批次进行排序，其中包括资产转移信息等交易。
 
-一个名为的特殊智能合约Verify.sol调用该VerifyBatches函数并将Batch Info作为输入。作为共识过程的一部分，但未在上图中显示，聚合器为排序的批次生成有效性证明。并且这个证明在这一步自动被验证。
+一个名为FflonkVerifier.sol的特殊智能合约调用该VerifyBatches函数并将Batch Info作为输入。作为共识过程的一部分，但未在上图中显示，聚合器为排序的批次生成有效性证明。并且这个证明在这一步自动被验证。
 
-zkEVM 出口树仅在成功验证已排序的批次后才会更新（同样，为简单起见，上图中未反映这一点）。Consensus SC ( PolygonZkEVM.sol) 将更新后的 zkEVM Exit Root 发送到 Global Exit Root Manager，后者随后更新 Global Exit Root。
+zkEVM Exit Tree仅在成功验证已排序的批次后才会更新（同样，为简单起见，上图中未反映这一点）。智能合约（PolygonZkEVM.sol）将更新后的 zkEVM Exit Tree Root 发送到 Global Exit Root管理器，后者随后更新 Global Exit Root。
 
-zkEVM Bridge SC ( PolygonZkEVMBridge.sol) 然后检索更新的全局出口根并使用该Claim函数完成传输。
+zkEVM Bridge 智能合约（PolygonZkEVMBridge.sol）然后检索更新的Global Exit Root并使用该Claim函数完成传输。
 
-=========================================================================================================================================
+#### L2中的智能合约
+
+L2中的Bridge 智能合约（PolygonZkEVMBridge.sol）与部署在L2（此处为以太坊主网）上的智能合约相同。
+
+但是L2 Global Exit Root管理器智能合约不同，它在代码中显示为PolygonZkEVMGlobalExitRootL2.sol. 这是一个允许L2 Exit Tree Root和Global Exit Root同步的特殊合约。
+
+L2 Global Exit Root管理器具有用于存储Global Exit Root和 L2 Exit Tree Root的存储槽。为了正确保证 Global Exit Tree 和 L2 Exit Tree 之间同步的有效性，这些存储槽可以直接被低级 ZK 证明生成电路访问。
+
+##### L2中智能合约之间的交互
+
+1. 当处理一批交易时，zkEVM Bridge智能合约（PolygonZkEVMBridge.sol）将带有批信息的出口叶子附加到L2出口树并更新L2 Exit Tree Root。
+2. Bridge智能合约将L2 Exit Tree Root传递给L2 Global Exit Root管理器。然而，L2 Global Exit Root管理器在此阶段不更新Global Exit Tree。
+3. 为了证明和验证，ZK证明生成电路从L2 Global Exit Root管理器获取L2 Exit Tree Root。
+4. 只有在批次被成功证明和验证后，L2 Global Exit Root管理器才会将L2 Exit Tree附加到Global Exit Tree。最终，Global Exit Root被更新。
+
+ZK证明生成电路还将L2 Exit Tree Root写入主网。然后可以使用部署在L1上的zkEVM Bridge智能合约的Claim函数完成传输。
+
+![l2 related scs](assets/04008-l2-related-scs.png)
 
 ### 资产流向
 
+#### L1 → L2的资产流向
+
+假设用户想要将一些资产从L1主网桥接到L2（这里是 Polygon zkEVM）。
+1. L1网络上zkEVM Bridge智能合约**PolygonZkEVMBridge.sol**的函数**Bridge**被调用。如果Bridge请求有效，则Bridge智能合约将出口叶子附加到L1 Exit Tree并计算新的L1 Exit Tree Root。
+2. Global Exit Root管理器（**PolygonZkEVMGlobalExitRoot.sol**）将新的L1 Exit Tree Root附加到Global Exit Tree并计算Global Exit Root。
+3. Sequencer从Global Exit Root管理器获取最新的Global Exit Root。
+4. 在交易批处理开始时，Sequencer将Global Exit Root存储在L2 Global Exit Root管理器智能合约（PolygonZkEVMGlobalExitRootL2.sol）的特殊存储槽中，允许L2用户访问它。
+5. 为了完成桥接过程，用户调用Bridge智能合约的函数**Claim**并提供默克尔证明，以证明正确的出口叶已包含并表示在Global Exit Root中。
+6. Bridge智能合约获得L2 Global Exit Root管理器智能合约的Global Exit Root并验证用户的默克尔包含证明。如果默克尔证明有效，则桥接过程成功；否则，交易失败。
+
+#### L2 → L1的资产流向
+
+假设用户想要将一些资产从L2桥接到L1主网的情况。
+1. 用户在L2调用Bridge智能合约（**PolygonZkEVMBridge.sol**）的函数**Bridge**。如果Bridge请求有效，则Bridge智能合约将出口叶子附加到L2 Exit Tree并计算新的L2 Exit Tree Root。
+2. 调用L2 Global Exit Root管理器（**PolygonZkEVMGlobalExitRootL2.sol）将新的L2 Exit Tree Root附加到Global Exit Root并计算Global Exit Root。
+3. 用户的桥接交易被包含在由Sequencer选择和排序的批次中。
+4. 聚合器生成ZK证明，证明在执行有序批次（其中一个批次包括用户的桥接交易）时的计算完整性。
+5. 出于验证目的，聚合器将ZK证明连同导致新的L2 Exit Tree Root（在上面的步骤2中计算）的所有相关批信息一起发送到共识智能合约（PolygonZkEVM.sol）。
+6. 共识智能合约利用该**verifyBatches**函数来验证接收到的ZK-proof的有效性。如果有效，共识智能合约将新的L2 Exit Tree Root发送到Global Exit Root管理器智能合约（PolygonZkEVMGlobalExitRoot.sol）以更新Global Exit Tree。
+7. 为了在L1网络上完成桥接过程，用户调用Bridge智能合约的函数**Claim**，并提供默克尔证明，证明正确的出口叶子被包含在Global Exit Root中。
+8. Bridge智能合约从L1 Global Exit Root管理器智能合约获取Global Exit Root并验证默克尔证明的有效性。如果默克尔证明有效，则Bridge智能合约成功完成桥接过程。否则，交易将被撤销。
+
+![complete asset flow l1 l2](assets/04009-complete-asset-flow-l1-l2.png)
+
 ## EVM和zkEVM
 
-# zkNode
-# zkProver
-# zk Assembly
-# 多项恒等式语言
+### 操作码
 
-=========================================================================================================================================
+* SELFDESTRUCT：删除并替换为SENDALL。
+* EXTCODEHASH：从zkEVM状态树返回合约字节码的哈希，而不检查账户是否为空。
+* DIFFICULTY：返回“0”而不是EVM中的随机数。
+* BLOCKHASH：返回所有先前的块哈希值，而不仅仅是最后256个块。
+* BLOCKHASH：可处理交易结束时的状态根，存储在系统智能合约中。
+* NUMBER：返回可处理交易的数量。
 
+### 预编译合约
 
-## 运行本地zkNode
+zkEVM支持以下预编译合约：
 
-[启动本地节点说明](https://zkevm.polygon.technology/docs/setup-local-node)
+* [ecRecover](https://ethereum.github.io/execution-specs/autoapi/ethereum/frontier/vm/precompiled_contracts/ecrecover/index.html)
+* [identity](https://ethereum.github.io/execution-specs/autoapi/ethereum/frontier/vm/precompiled_contracts/identity/index.html)
 
+其他预编译合约对zkEVM状态树没有影响，被视为一个**revert**，将所有gas返回到之前的上下文并将success标志设置为“0”。
 
+### 附加项
 
-文档层叠到 zkEVM 子组件的更详细信息，包括零知识证明器 (zkProver)、zkProver 中使用的状态机、 zkEVM Bridge 智能合约以及使 Polygon zkEVM 能够实现其目标的特殊工具.
+* zk-counters：批处理资源可用，链接到状态机组件，作为gas计算的补充
 
+### 其他细微差别
 
-
-Polygon zkEVM 术语表
-1层
-Layer1或基础区块链是安装汇总智能合约的地方。它是以太坊或以太坊的测试网，但它可以是任何 EVM 兼容的区块链。
-
-2层
-Layer2指的是rollup网络；在这里指Polygon zkEVM网络。
-
-共识合约 (PolygonZkEVM.sol)
-Polygon zkEVM网络使用的共识机制。它由部署在L1（在本例中为以太坊）的智能合约执行。
-
-批
-一组使用 zkProver 执行/证明并发送到/从L1同步的交易。
-
-音序器
-zkEVM 参与者，负责选择交易，将它们按特定顺序排列，并分批发送给 L1。
-
-值得信赖的定序器
-具有特殊权限的音序器。只能有一个可信的排序器。授予可信排序器的特权允许它预测将应用于L1的批次。这样，它可以在与L1交互之前提交特定序列。这样做是为了实现快速的最终确定并降低与使用网络相关的成本（降低汽油费）。
-
-未经许可的定序器
-网络上任何人都可以执行的定序器角色。尽管与可信排序器相比它具有竞争劣势（如最终确定性较慢或 MEV 攻击），但其主要目的是对网络实施去中心化和审查抵抗。
-
-顺序
-可信排序器发送到L1以更新状态的批处理组和其他元数据。
-
-强制批处理
-由未经许可的排序器发送到L1以更新状态的批处理。
-L2块
-与L1块相同，但用于 L2。它主要由 JSON-RPC 接口使用。
-
-目前，所有L2区块都设置为仅包含一笔交易。这样做是为了实现即时终结。因此，不必关闭批处理以允许 JSON-RPC 公开已处理事务的结果。
-
-可信状态
-L2 状态由可信定序器提交。
-
-虚拟状态
-处理已经提交给L1的交易后达到的状态。这些交易由受信任的或未经许可的排序器分批发送。这些批次也称为虚拟批次。这种状态是无信任的，因为它依赖于 L1（这里是以太坊）来保证安全。
-
-合并状态
-通过提交 ZKP（零知识证明）在链上证明状态，证明最后一个虚拟批次的序列的执行。
-
-无效交易
-无法处理且不影响网络状态的事务。这样的交易可以包含在虚拟批次中。交易无效的原因可能与：
-
-以太坊协议：无效的随机数，余额不足等
-zkEVM 引入的限制：每个批次可以利用有限数量的资源，例如可以计算的 keccak 哈希总量。
-恢复交易
-已执行但被还原的交易（由于智能合约逻辑）。无效交易和还原交易之间的主要区别在于还原交易会修改状态，至少会增加发送方的随机数。
-
-
+* 由于zkEVM状态树规范，当在某个地址部署合约时，zkEVM不会清理存储。
+* 推送字节中允许JUMPDEST操作码以避免运行时字节码分析。
+* zkEVM实现了来自伦敦硬分叉的[EIP-3541](https://eips.ethereum.org/EIPS/eip-3541)。
+* 不支持定义Typed Transaction Envelope的[EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)。
+* 不支持定义可选访问列表事务类型的[EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)。

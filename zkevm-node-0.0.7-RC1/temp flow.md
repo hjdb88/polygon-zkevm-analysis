@@ -10,7 +10,48 @@
       3. 启动rpc服务
       4. 启动Synchronizer服务
       5. 启动ETHTxManager服务
-      6. 启动L2GasPrice服务（维护建议的L2 gasPrice)
+      6. 启动L2GasPrice服务（维护建议的L2 gasPrice）
+
+### Aggregator（聚合器）
+
+1. 启动聚合器（cmd/run.go#runAggregator）: 
+   1. 开始前处理监控批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs）
+   2. 删除未生成的递归证明（state/pgstatestorage.go#DeleteUngeneratedProofs） 
+   3. 启动聚合器grpc服务
+      1. 实现证明者客户端和聚合器服务器之间的双向通信通道（aggregator/aggregator.go#Channel）
+         1. 检查提供的证明是否有资格用于构建最终证明（aggregator/aggregator.go#tryBuildFinalProof）
+            1. 目前没有证明生成，检查是否有准备好验证的证明
+               1. getAndLockProofReadyToVerify
+               2. UpdateGeneratedProof
+            2. 目前有证明生成，检查它是否有资格被验证
+               1. validateEligibleFinalProof: 验证最终证明是否合格
+            3. buildFinalProof: 构建并返回聚合批证明的最终证明
+               1. FinalProof: 指示证明者为给定的输入生成最终证明。返回正在计算的证明的ID
+               2. WaitFinalProof: 等待证明者生成证明并返回证明者响应
+            4. 通过channel返回证明结果，<font color="#0099cc">a.finalProof <- msg</font>
+         2. 尝试聚合证明（aggregator/aggregator.go#tryAggregateProofs）
+            1. AggregatedProof: 指示证明者从提供的两个输入生成聚合证明。返回正在计算的证明的ID
+            2. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
+            3. 通过删除2个聚合证明并存储新生成的递归证明来更新状态
+            4. tryBuildFinalProof: 状态是最新的，检查是否可以使用刚制作的证明发送最终证明
+            5. UpdateGeneratedProof: 最终证明还没有生成，更新递归证明
+         3. 尝试生成批次证明（aggregator/aggregator.go#tryGenerateBatchProof） 
+            1. getAndLockBatchToProve: 获取并锁定要证明的批次
+            2. buildInputProver: 构建证明输入参数
+            3. BatchProof: 指示证明者为提供的输入生成批量证明。返回正在计算的证明的ID
+            4. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
+            5. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
+            6. UpdateGeneratedProof: 最终证明还没有生成，更新批量证明
+            7. DeleteGeneratedProofs: 从存储中删除落在批号范围内的生成证明
+   4. 定时从存储中删除锁定在生成状态并且超过设定阈值的证明（aggregator/aggregator.go#cleanupLockedProofs）
+      1. 从存储中删除锁定在生成状态并且超过设定阈值的证明（state/pgstatestorage.go#CleanupLockedProofs） 
+   5. 等待从证明者那里接收最终证明，<font color="#0099cc">msg := <-a.finalProof</font>（aggregator/aggregator.go#sendFinalProof）
+      1. 将verifyingProof变量设置为true表示正在进行证明验证（aggregator/aggregator.go#startProofVerification） 
+      2. 获取给定编号的批次（state/pgstatestorage.go#GetBatchByNumber） 
+      3. 向L1合约提交证明验证（etherman/etherman.go#BuildTrustedVerifyBatchesTxData） 
+      4. 在开始下一个周期之前处理受监控的批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs） 
+      5. 更新超时以验证证明（aggregator/aggregator.go#resetVerifyProofTime） 
+      6. 将verifyingProof变量设置为false表示没有正在进行的证明验证（aggregator/aggregator.go#endProofVerification） 
 
 ### Sequencer（定序器）
 
@@ -59,7 +100,7 @@
          4. tx为空，等待新tx
          5. 遇到任何关闭信号的最后期限或者批次交易数量已满或者当前批次剩余资源在最有效时刻关闭批的约束阈值范围内（满足isDeadlineEncountered或者isBatchFull或者isBatchAlmostFull时执行sequencer/finalizer.go#finalizeBatch）
             1. 重试直到成功关闭当前批次并打开一个新批次，可能会在批次关闭和生成的新空批次之间处理强制批次
-   4. 关闭信号管理器（sequencer/closingsignalsmanager.go#Start）
+   4. 启动关闭信号管理器（sequencer/closingsignalsmanager.go#Start）
       1. 定时检查强制批次（sequencer/closingsignalsmanager.go#checkForcedBatches）
          1. 获取待处理的强制批次
          2. 循环发送强制批次到channel，<font color="#ff66cc">c.closingSignalCh.ForcedBatchCh <- *forcedBatch</font>
@@ -70,7 +111,7 @@
          1. 获取最后一次提交时间
          2. 如果超过配置的限定时间范围发送消息到channel，<font color="#ffff33">c.closingSignalCh.SendingToL1TimeoutCh <- true</font>
    5. 监控旧交易并处理（sequencer/sequencer.go#trackOldTxs）
-   6. 尝试发送批次（sequencer/sequencesender.go#isSynced#tryToSendSequence）
+   6. 尝试发送批次（sequencer/sequencesender.go#tryToSendSequence）
       1. 在开始下一个循环之前处理监控的交易（#ProcessPendingMonitoredTxs）
       2. 检查同步器是否是最新的（sequencer/sequencer.go#isSynced）
       3. 检查是否应该将序列发送到L1（sequencer/sequenccer.go#getSequencesToSend）
@@ -78,49 +119,6 @@
          1. 调用合约方法sequenceBatches（etherman/etherman.go#sequenceBatches）
       5. 将序列添加到ethTxManager，ethTxManager放置要发送和监控的交易（ethtxmanager/ethtxmanager#Add）
    7. 将worker中太旧的交易过期（sequencer/worker.go#ExpireTransactions、pool/pool.go#UpdateTxStatus）
-
-### Aggregator（聚合器）
-
-1. 启动聚合器（cmd/run.go#runAggregator）: 
-   1. 开始前处理监控批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs）
-   2. 删除未生成的递归证明（state/pgstatestorage.go#DeleteUngeneratedProofs） 
-   3. 启动聚合器grpc服务
-   4. 定时从存储中删除锁定在生成状态并且超过设定阈值的证明（aggregator/aggregator.go#cleanupLockedProofs）
-      1. 从存储中删除锁定在生成状态并且超过设定阈值的证明（state/pgstatestorage.go#CleanupLockedProofs） 
-   5. 等待从证明者那里接收最终证明，<font color="#0099cc">msg := <-a.finalProof</font>（aggregator/aggregator.go#sendFinalProof）
-      1. 将verifyingProof变量设置为true表示正在进行证明验证（aggregator/aggregator.go#startProofVerification） 
-      2. 获取给定编号的批次（state/pgstatestorage.go#GetBatchByNumber） 
-      3. 向L1合约提交证明验证（etherman/etherman.go#BuildTrustedVerifyBatchesTxData） 
-      4. 在开始下一个周期之前处理受监控的批次验证（ethtxmanager/ethtxmanager.go#ProcessPendingMonitoredTxs） 
-      5. 更新超时以验证证明（aggregator/aggregator.go#resetVerifyProofTime） 
-      6. 将verifyingProof变量设置为false表示没有正在进行的证明验证（aggregator/aggregator.go#endProofVerification） 
-
-
-1. 实现证明者客户端和聚合器服务器之间的双向通信通道（aggregator/aggregator.go#Channel）
-   1. 检查提供的证明是否有资格用于构建最终证明（aggregator/aggregator.go#tryBuildFinalProof）
-      1. 目前没有证明生成，检查是否有准备好验证的证明
-         1. getAndLockProofReadyToVerify
-         2. UpdateGeneratedProof
-      2. 目前有证明生成，检查它是否有资格被验证
-         1. validateEligibleFinalProof: 验证最终证明是否合格
-      3. buildFinalProof: 构建并返回聚合批证明的最终证明
-         1. FinalProof: 指示证明者为给定的输入生成最终证明。它返回正在计算的证明的ID
-         2. WaitFinalProof: 等待证明者生成证明并返回证明者响应
-      4. 通过channel返回证明结果，<font color="#0099cc">a.finalProof <- msg</font>
-   2. 尝试聚合证明（aggregator/aggregator.go#tryAggregateProofs）
-      1. AggregatedProof: 指示证明者从提供的两个输入生成聚合证明。它返回正在计算的证明的ID
-      2. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
-      3. 通过删除2个聚合证明并存储新生成的递归证明来更新状态
-      4. tryBuildFinalProof: 状态是最新的，请检查我们是否可以使用刚制作的证明发送最终证明
-      5. UpdateGeneratedProof: 最终证明还没有生成，更新递归证明
-   3. 尝试生成批次证明（aggregator/aggregator.go#tryGenerateBatchProof） 
-      1. getAndLockBatchToProve
-      2. buildInputProver
-      3. BatchProof: 指示证明者为提供的输入生成批量证明。它返回正在计算的证明的ID
-      4. WaitRecursiveProof: 等待证明者生成递归证明并将其返回
-      5. tryBuildFinalProof: 检查提供的证明是否有资格用于构建最终证明
-      6. UpdateGeneratedProof: 最终证明还没有生成，更新批量证明
-      7. DeleteGeneratedProofs: 从存储中删除落在批号范围内的生成证明
 
 ### Synchronizer（同步器）流程
 
@@ -155,27 +153,14 @@
 
 1. 启动ETHTxManager（ethtxmanager/ethtxmanager.go#Start）
 
-
 ### Prover
 
-接口：
-1. BatchProof
-2. WaitRecursiveProof
-3. AggregatedProof
-4. FinalProof
-5. WaitFinalProof
-
-
 1. 当聚合器服务调用以生成批量证明时：
-    * 它调用 Prover 组件执行输入数据（一批 EVM 交易），计算结果状态，并根据 PIL 多项式定义及其约束生成计算证明。
-        * Executor 组件结合了 14 个状态机，这些状态机处理输入数据以生成生成证明所需的提交多项式的评估。每个状态机生成它们的计算证据数据，更复杂的演算演示委托给下一个状态机。
-    * Prover 组件调用 Stark 组件来生成 Executor 状态机提交多项式的证明。
-2. 当聚合器服务调用以生成聚合证明时：Prover 组件结合了 Aggregator 提供的 2 个先前计算的批量或聚合证明的结果，并生成一个聚合证明。
-3. 当聚合器服务调用以生成最终证明时：Prover 组件采用聚合器提供的先前计算的聚合证明的结果，并生成可以验证的最终证明。
-
-
------
-
+    * 调用Prover组件执行输入数据（一批交易），计算结果状态，并根据PIL多项式定义及其约束生成计算证明。
+        * Executor组件结合了多个状态机，这些状态机处理输入数据以生成生成证明所需的提交多项式的评估。每个状态机生成它们的计算证据数据，更复杂的演算演示委托给下一个状态机。
+    * Prover组件调用Stark组件来生成Executor状态机提交多项式的证明。
+2. 当聚合器服务调用以生成聚合证明时：Prover组件结合了Aggregator提供的2个先前计算的批量或聚合证明的结果，并生成一个聚合证明。
+3. 当聚合器服务调用以生成最终证明时：Prover组件采用聚合器提供的先前计算的聚合证明的结果，并生成可以验证的最终证明。
 
 ### 其他
 
@@ -188,8 +173,7 @@
       5. 处理forceSequencedBatchesSignatureHash事件（ehterman/etherman.go#forceSequencedBatchesEvent）
       6. 处理updateZkEVMVersionSignatureHash事件（ehterman/etherman.go#updateZkevmVersion）
 
-
-# 备注
+## 备注
 
 1. L2的交易数据提交到L1交易的InputData中
 2. Sequencer（定序器）同步数据先从L1合约event log同步，然后才从可信定序器同步信息

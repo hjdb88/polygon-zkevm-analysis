@@ -9,5 +9,3 @@ L2交易：用户在钱包发起交易并发送给定序器，定序器承诺添
 
 
 PolygonZkEVM.sol合约sequencedBatches函数必须包含一个globalExitRoot存在于桥的L1合约PolygonZkEVMGlobalExitRoot.sol的GlobalExitRootMap中。只有包含有效的globalExitRoot，批次才有效。
-
-As L2 Network mentioned, all L2 network history can be recomputed from L1 smart contracts. So, for the Polygon ZkEVM case, how do I get the transaction history of L2 transactions from the Polygon ZkEVM contract on L1?
